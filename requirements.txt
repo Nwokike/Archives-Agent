@@ -1,0 +1,8 @@
+google-adk
+python-dotenv
+python-telegram-bot
+huggingface-hub
+requests
+psycopg2-binary
+mcp
+litellm 
