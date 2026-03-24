@@ -1,21 +1,37 @@
-import os
-from google_adk import SequentialAgent
-from mcp import call_tool as mcp_call_tool
-from agents.schema import PipelineState
+from google.adk.agents import Agent
+from agents.mcp_client import call_mcp_tool
 
-class PublisherAgent(SequentialAgent):
-    model = "gemini-2.5-flash-lite"
-    async def step_publish_archive(self, state: PipelineState):
-        if not state.draft_payload: return False
-        try:
-            payload = state.draft_payload.copy()
-            payload["image"] = f"file://{state.image_path}"
-            await mcp_call_tool("igbo-archives", "create_archives", {"body": payload})
-            state.status = "SUCCESS"
-            return True
-        except: return False
+# Tool: Final Publication to Igbo Archives
+async def create_archives_submission(payload: dict, image_path: str) -> dict:
+    """Publishes the validated archival record to the central platform."""
+    try:
+        # Prepare the body based on the REST API documentation
+        # Ensure image is passed as a file URL for the MCP tool to resolve
+        body = payload.copy()
+        
+        # Mapping from schema to API fields if necessary
+        # The schema ArchiveCreate already matches the API Body fields:
+        # title, archive_type, description, caption, alt_text, circa_date, 
+        # location, copyright_holder, original_url, original_identity_number, category_id
+        
+        if image_path:
+            body["image"] = f"file://{image_path}"
+            
+        # Call the MCP tool 'create_archives' which expects {"body": {...}}
+        response = await call_mcp_tool("igbo-archives", "create_archives", {"body": body})
+        return {"status": "SUCCESS", "message": "Archived successfully.", "id": response.get("id")}
+    except Exception as e:
+        return {"status": "FAILURE", "error": str(e)}
 
-    async def step_cleanup(self, state: PipelineState):
-        if state.image_path and os.path.exists(state.image_path):
-            os.remove(state.image_path)
-        return True
+# Publisher Agent
+publisher = Agent(
+    name="publisher",
+    model="gemini-2.5-flash-lite",
+    description="Agent E: The final record publisher.",
+    instruction="""
+    Use the 'create_archives_submission' tool to publish the validated metadata.
+    Ensure you include the local image_path provided by the supervisor.
+    If the submission was successful, confirm the Archive ID.
+    If failed, report the error exactly.
+    """
+)

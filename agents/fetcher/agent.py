@@ -1,39 +1,73 @@
 import os
 import json
-from google_adk import SequentialAgent
+from google.adk.agents import Agent
 from huggingface_hub import hf_hub_download
-from mcp import call_tool as mcp_call_tool
-from agents.schema import PipelineState
+from agents.mcp_client import call_mcp_tool
 
-class FetcherAgent(SequentialAgent):
-    """Agent A: Fetches Row Metadata from HF and Live Taxonomies."""
-    model = "gemini-2.5-flash-lite"
-    
-    async def step_fetch_metadata(self, state: PipelineState):
-        try:
-            metadata_path = hf_hub_download(repo_id=state.repo_id, filename="data.jsonl", repo_type="dataset")
-            with open(metadata_path, 'r', encoding='utf-8') as f:
-                for i, line in enumerate(f):
-                    if i == state.current_index:
-                        state.hf_metadata = json.loads(line)
-                        return True
-            return False
-        except: return False
+# Tool: Downloads image to /tmp to avoid link rot
+async def image_downloader(repo_id: str, file_name: str) -> str:
+    """Downloads a dataset image to local /tmp storage to ensure availability."""
+    try:
+        path = hf_hub_download(repo_id=repo_id, filename=f"images/{file_name}", repo_type="dataset")
+        return path
+    except Exception as e:
+        return f"ERROR: {str(e)}"
 
-    async def step_download_image(self, state: PipelineState):
-        try:
-            images = state.hf_metadata.get("images", [])
-            if not images: return False
-            file_name = images[0].get("file_name")
-            state.image_path = hf_hub_download(repo_id=state.repo_id, filename=f"images/{file_name}", repo_type="dataset")
-            return True
-        except: return False
+# Tool: Fetches live taxonomies from the archives server via MCP
+async def mcp_taxonomy_fetcher() -> dict:
+    """Gets live Authors and Categories from the Igbo Archives server."""
+    try:
+        authors = await call_mcp_tool("igbo-archives", "list_authors", {})
+        categories = await call_mcp_tool("igbo-archives", "list_categories", {})
+        return {
+            "authors": authors.get("results", []),
+            "categories": categories.get("results", [])
+        }
+    except Exception as e:
+        return {"error": str(e)}
 
-    async def step_fetch_taxonomies(self, state: PipelineState):
-        try:
-            authors_resp = await mcp_call_tool("igbo-archives", "list_authors", {})
-            categories_resp = await mcp_call_tool("igbo-archives", "list_categories", {})
-            state.taxonomies["authors"] = authors_resp.get("results", [])
-            state.taxonomies["categories"] = categories_resp.get("results", [])
-            return True
-        except: return False
+# Tool: Map HF Record to Pipeline Schema
+async def process_hf_row(repo_id: str, index: int) -> dict:
+    """Extracts raw metadata from HF and maps it to the internal pipeline schema."""
+    try:
+        metadata_path = hf_hub_download(repo_id=repo_id, filename="data.jsonl", repo_type="dataset")
+        record = None
+        with open(metadata_path, 'r', encoding='utf-8') as f:
+            for i, line in enumerate(f):
+                if i == index:
+                    record = json.loads(line)
+                    break
+        
+        if not record: return {"error": "Index out of bounds"}
+        
+        # Primary mapping: idno -> original_identity_number
+        metadata = record.get("metadata", {})
+        images = record.get("images", [])
+        file_name = images[0].get("file_name") if images else ""
+        
+        # Download image now to ensure vision has access
+        image_local_path = ""
+        if file_name:
+            image_local_path = await image_downloader(repo_id, file_name)
+            
+        return {
+            "raw_metadata": metadata,
+            "original_identity_number": metadata.get("idno"),
+            "original_url": record.get("source_url"),
+            "image_path": image_local_path
+        }
+    except Exception as e:
+        return {"error": str(e)}
+
+# Fetcher Agent
+fetcher = Agent(
+    name="fetcher_taxonomist",
+    model="gemini-2.5-flash-lite", 
+    description="Agent A: Metadata retrieval and taxonomy mapping.",
+    tools=[process_hf_row, mcp_taxonomy_fetcher],
+    instruction="""
+    Use 'process_hf_row' to get the raw record and downloaded image path.
+    Use 'mcp_taxonomy_fetcher' to get live server categories.
+    Return all extracted data to the supervisor.
+    """
+)

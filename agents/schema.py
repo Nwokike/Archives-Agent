@@ -1,20 +1,28 @@
-import json
-from google_adk import SessionState
+from pydantic import BaseModel
+from typing import Dict, Any, Optional
 
-class PipelineState(SessionState):
-    """Shared Persistent Memory for the Igbo Archives Ingestion Pipeline."""
-    repo_id: str = "nwokikeonyeka/maa-cambridge-south-eastern-nigeria"
+class PipelineState(BaseModel):
+    """
+    Master Ingestion System State.
+    Aligned with 'Master Architecture Blueprint' Table Schema.
+    """
+    dataset_id: str = "nwokikeonyeka/maa-cambridge-south-eastern-nigeria" # PK in Neon
     current_index: int = 0
     last_processed_id: str = ""
     status: str = "idle"
-    loop_count: int = 0
-    hf_metadata: dict = {}
+    last_success: str = "" # Timestamp of last successful archive
+    
+    # Internal Pipeline Memory
+    hf_metadata: Dict[str, Any] = {}
     image_path: str = ""
     vision_report: str = ""
-    taxonomies: dict = {"authors": [], "categories": []}
-    draft_payload: dict = {}
-    corrections: str = ""
-    last_success_timestamp: str = ""
+    taxonomies: Dict[str, Any] = {"authors": [], "categories": []}
+    draft_payload: Dict[str, Any] = {}
+    loop_count: int = 0
+    
+    def get_context_summary(self) -> str:
+        return f"Dataset: {self.dataset_id} | Index: {self.current_index} | Status: {self.status}"
 
-    def get_context_summary(self):
-        return f"Currently at index {self.current_index}. Last success: {self.last_success_timestamp}"
+def get_initial_state() -> Dict[str, Any]:
+    """Returns the starting state as a dictionary for ADK SessionService."""
+    return PipelineState().model_dump()

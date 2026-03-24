@@ -12,7 +12,8 @@ dependencies = [
     "huggingface-hub",
     "requests",
     "psycopg2-binary",
-    "mcp",
+    "httpx",
+    "pydantic",
 ]
 
 [build-system]
