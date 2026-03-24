@@ -1,0 +1,21 @@
+[project]
+name = "igbo-archives-agent-hq"
+version = "0.1.0"
+description = "Autonomous AI pipeline for cultural archiving of Igbo historical data."
+readme = "README.md"
+requires-python = ">=3.13"
+license = { text = "MIT" }
+dependencies = [
+    "google-adk>=1.26.0",
+    "python-dotenv",
+    "python-telegram-bot",
+    "huggingface-hub",
+    "requests",
+    "psycopg2-binary",
+    "mcp",
+    "litellm",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
