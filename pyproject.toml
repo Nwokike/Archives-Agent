@@ -3,7 +3,7 @@ name = "igbo-archives-agent-hq"
 version = "0.1.0"
 description = "Autonomous AI pipeline for cultural archiving of Igbo historical data."
 readme = "README.md"
-requires-python = ">=3.13"
+requires-python = "==3.13.*"
 license = { text = "MIT" }
 dependencies = [
     "google-adk>=1.26.0",
@@ -13,7 +13,6 @@ dependencies = [
     "requests",
     "psycopg2-binary",
     "mcp",
-    "litellm",
 ]
 
 [build-system]
