@@ -1,4 +1,4 @@
-# 🇳🇬 Igbo Archives Autonomous Ingestion System (HQ)
+# Igbo Archives Autonomous Ingestion System
 
 [![AI-Powered](https://img.shields.io/badge/AI-Autonomous%20Agents-blueviolet)](https://google.github.io/google-adk/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
@@ -55,6 +55,3 @@ uv run python app.py
 - **Deterministic Row Access**: Uses static indexing for 100% repeatability.
 - **Author Matcher**: Forces fuzzy-to-exact mapping against live web records.
 - **Honest Null Protocol**: Strictly forbids LLM fabrication if data is missing.
-
----
-© 2026. Released under the **MIT License**.
