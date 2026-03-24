@@ -108,40 +108,45 @@ async def run_pipeline(update: Update, bot: Bot):
                     current_step = {"agent": author, "status": "working", "detail": "Starting..."}
                     hive_steps.append(current_step)
                 
-                # 2. Update Details
+                # 2. Extract Text Content Safely
+                event_text = ""
+                if event.content and event.content.parts:
+                    event_text = "".join([p.text for p in event.content.parts if p.text]).strip()
+
                 func_calls = event.get_function_calls()
+                func_responses = event.get_function_responses()
+                
+                # 3. Update Step Details (Log-style)
                 if func_calls:
                     tools = ", ".join([fc.name for fc in func_calls])
-                    current_step["detail"] = f"Calling `{tools}`"
-                elif event.text:
+                    current_step["detail"] = f"🛠️ Calling: `{tools}`"
+                elif func_responses:
+                    current_step["detail"] = "📥 Data Received"
+                elif event_text:
                     if author == "orchestrator":
-                        full_output += event.text
-                    else:
-                        # Character limit for details to avoid Telegram message size issues
-                        detail = event.text[:60].replace("\n", " ")
-                        current_step["detail"] = f"{detail}..."
-
+                        full_output += event_text
+                    snippet = event_text[:45].replace("\n", " ")
+                    current_step["detail"] = f"💭 {snippet}..."
+                
                 if event.is_final_response():
                     current_step["status"] = "done"
-                    current_step["detail"] = "Complete"
+                    if "detail" not in current_step or current_step["detail"] == "Starting...":
+                        current_step["detail"] = "✅ Complete"
 
-                # 3. Format Telegram Message
-                display_lines = ["📡 *Archives Hive Analyzing...*", ""]
-                for step in hive_steps[-6:]: # Show last 6 steps
-                    icon = "⚡" if step["status"] == "working" else "✅"
-                    name = step["agent"].replace("_", " ").title()
-                    display_lines.append(f"{icon} *{name}*: {step['detail']}")
-                
-                status_text = "\n".join(display_lines)
-
-                # 4. Throttled Edit (avoid rate limits)
+                # 4. Format & Throttled Edit
                 now = time.time()
-                if now - last_update_time >= 1.5:
+                if now - last_update_time >= 1.2:
+                    display_lines = ["📡 *Archives Hive Activity*", ""]
+                    for step in hive_steps[-5:]: # Show last 5 steps for focus
+                        icon = "⚡" if step["status"] == "working" else "🔵"
+                        name = step["agent"].replace("_", " ").upper()
+                        display_lines.append(f"{icon} *{name}*\n└ {step['detail']}")
+                    
                     try:
                         await bot.edit_message_text(
                             chat_id=chat_id,
                             message_id=status_msg.message_id,
-                            text=status_text,
+                            text="\n".join(display_lines),
                             parse_mode="Markdown"
                         )
                         last_update_time = now
