@@ -1,6 +1,6 @@
 import json
 from google_adk import LLMAgent, LoopAgent, Node
-from ..schema import PipelineState
+from agents.schema import PipelineState
 
 class WriterAgent(LLMAgent):
     model = "gemini-3-flash"

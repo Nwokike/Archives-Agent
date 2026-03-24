@@ -1,7 +1,7 @@
 import os
 from google_adk import LLMAgent
 from google_adk.media import Image
-from ..schema import PipelineState
+from agents.schema import PipelineState
 
 class VisionAgent(LLMAgent):
     """Agent B: Quarantined Visual Analyst."""
