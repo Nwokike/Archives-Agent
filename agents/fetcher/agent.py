@@ -1,5 +1,6 @@
 import os
 import json
+import shutil
 from google.adk.agents import Agent
 from huggingface_hub import hf_hub_download
 from agents.mcp_client import call_mcp_tool
@@ -9,7 +10,10 @@ async def image_downloader(repo_id: str, file_name: str) -> str:
     """Downloads a dataset image to local /tmp storage to ensure availability."""
     try:
         path = hf_hub_download(repo_id=repo_id, filename=f"images/{file_name}", repo_type="dataset")
-        return path
+        # Isolate from HF cache to prevent corruption on deletion
+        safe_path = os.path.join("/tmp", os.path.basename(path))
+        shutil.copy2(path, safe_path)
+        return safe_path
     except Exception as e:
         return f"ERROR: {str(e)}"
 

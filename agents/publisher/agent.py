@@ -29,9 +29,9 @@ publisher = Agent(
     model="gemini-2.5-flash-lite",
     description="Agent E: The final record publisher.",
     instruction="""
-    Use the 'create_archives_submission' tool to publish the validated metadata.
-    Ensure you include the local image_path provided by the supervisor.
-    If the submission was successful, confirm the Archive ID.
+    3. COMMIT: If and ONLY IF the state indicates the draft has been 'APPROVED' by the Historical Validator, call the `create_archives_submission` tool. 
+    4. ABORT: If the 'APPROVED' status is missing or the Validator has feedback, do NOT call the tool and return a failure message.
+    
     If failed, report the error exactly.
     """
 )
