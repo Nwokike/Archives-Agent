@@ -1,9 +1,9 @@
 from google_adk import SupervisorAgent, WorkflowAgent, Node
-from agents.schema import PipelineState
-from agents.fetcher.agent import FetcherAgent
-from agents.vision.agent import VisionAgent
-from agents.synthesis.agent import SynthesisLoop
-from agents.publisher.agent import PublisherAgent
+from ..schema import PipelineState
+from ..fetcher.agent import FetcherAgent
+from ..vision.agent import VisionAgent
+from ..synthesis.agent import SynthesisLoop
+from ..publisher.agent import PublisherAgent
 
 class ArchivePipeline(WorkflowAgent):
     nodes = [

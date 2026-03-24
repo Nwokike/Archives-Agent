@@ -5,59 +5,43 @@
 
 An enterprise-grade, fully autonomous AI pipeline designed for **Daily Cultural Archiving**. This system preserves Igbo heritage by intelligently fetching colonial-era metadata from Hugging Face, performing deep visual analysis, and publishing validated entries to the [Igbo Archives](https://igboarchives.com.ng) platform.
 
-## 🌟 Project Vision
-Cultural heritage is often trapped in inaccessible digital silos. This project uses **Google ADK v1.26** and **Gemini 3.1/2.5** to create a resident AI archivist that:
-1.  **Rescues History**: Automates the ingestion of thousands of historical images with human-grade accuracy.
-2.  **Verifies Context**: Employs an 8-layer anti-hallucination protocol to ensure historical integrity.
-3.  **Preserves Identity**: Grounded in live taxonomies of Igbo authors and categories at **igboarchives.com.ng**.
-
 ## 🏗️ Architecture: The Agent Hive
-The system follows a **Supervised Hierarchical Pipeline** (Agent-as-a-Tool Hive):
+The system follows a **Supervised Hierarchical Pipeline**. To ensure compatibility with the **ADK Web UI**, each agent is organized into its own subdirectory:
 
-- **Orchestrator (Gemini 3.1 Flash Lite)**: The conversational brain. Interprets natural language intents (e.g., "Archive the next available row") and manages the sequence.
-- **Agent A (Fetcher)**: Deterministically fetches metadata and downloads images from the HF `maa-cambridge-south-eastern-nigeria` dataset.
-- **Agent B (Vision Analyst)**: Performs quarantined visual-only analysis to ensure unbiased reporting (Gemini 2.5 Flash).
-- **Agent C/D (Synthesis & Quality)**: Iterative Write/Critic loop to synthesize draft entries and validate them against platform taxonomies.
-- **Agent E (Publisher)**: Final execution engine that commits the validated archive to the platform via MCP.
+- **Orchestrator**: The root brain. Manages conversational intent and triggers the pipeline.
+- **Fetcher**: Meta-data first deterministic row retrieval.
+- **Vision Analyst**: Quarantined visual context analyzer.
+- **Synthesis Loop**: Iterative Writer/Critic refinement.
+- **Publisher**: Final commit engine via MCP.
 
 ## 🛠️ Tech Stack
 -   **Framework**: [Google ADK v1.26](https://google.github.io/google-adk/)
--   **Models**: Gemini 3.1 Flash Lite (Orchestration), Gemini 3 Flash (Synthesis), Gemini 2.5 Flash (Vision).
--   **Persistence**: [Neon DB](https://neon.tech) (Postgres) via `DatabaseSessionService`.
--   **Integrations**: Hugging Face Hub, Telegram Bot API, MCP (Model Context Protocol).
+-   **Execution**: Python 3.13 with [uv](https://github.com/astral-sh/uv).
+-   **Persistence**: Neon DB (Postgres).
+-   **Integrations**: Hugging Face Hub, Telegram Bot API, MCP.
 
-## 🚀 Installation & Local Development
+## 🚀 Installation & Usage
 
-### 1. Prerequisites
-- [uv](https://github.com/astral-sh/uv)
-- Python 3.13
-
-### 2. Setup (UV)
+### 1. Setup
 ```bash
 # Clone & Sync
 git clone https://github.com/Nwokike/Archives-Agent.git
 cd archives-agent
 uv sync
 
-# Environment Variables
+# Configure Environment
 cp .env.example .env
-# Edit .env with your Google AI Studio, Telegram, and Neon DB credentials.
+# Edit .env with your credentials.
 ```
 
-### 3. Usage
-**Telegram Chat**:
+### 2. Run the Bot
 ```bash
 uv run python app.py
 ```
-*Simply say **"Archive row 500"** or **"Today's archive"** to the bot.*
+*Chat with the bot: **"Archive row 500"** or **"Today's archive"**.*
 
-**Local Web UI (Debugging)**:
+### 3. Debug with ADK Web
 ```bash
-uv run adk web .
+uv run adk web agents/
 ```
-*Note: Point ADK to the root directory containing the agents.*
-
-## 🛡️ Anti-Hallucination Protocol
-- **Deterministic Row Access**: Uses static indexing for 100% repeatability.
-- **Author Matcher**: Forces fuzzy-to-exact mapping against live web records at **igboarchives.com.ng**.
-- **Honest Null Protocol**: Strictly forbids LLM fabrication if data is missing.
+*Browse individual agents and inspect history in the local dashboard.*

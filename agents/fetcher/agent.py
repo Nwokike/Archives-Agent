@@ -3,7 +3,7 @@ import json
 from google_adk import SequentialAgent
 from huggingface_hub import hf_hub_download
 from mcp import call_tool as mcp_call_tool
-from agents.schema import PipelineState
+from ..schema import PipelineState
 
 class FetcherAgent(SequentialAgent):
     """Agent A: Fetches Row Metadata from HF and Live Taxonomies."""

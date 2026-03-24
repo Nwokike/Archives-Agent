@@ -1,2 +1,2 @@
-from agents.schema import PipelineState
+from ..schema import PipelineState
 from .agent import Orchestrator

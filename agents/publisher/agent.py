@@ -1,7 +1,7 @@
 import os
 from google_adk import SequentialAgent
 from mcp import call_tool as mcp_call_tool
-from agents.schema import PipelineState
+from ..schema import PipelineState
 
 class PublisherAgent(SequentialAgent):
     model = "gemini-2.5-flash-lite"
