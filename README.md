@@ -1,4 +1,4 @@
-# Igbo Archives Autonomous Ingestion System
+# 🇳🇬 Igbo Archives Autonomous Ingestion System (HQ)
 
 [![AI-Powered](https://img.shields.io/badge/AI-Autonomous%20Agents-blueviolet)](https://google.github.io/google-adk/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
@@ -42,16 +42,22 @@ uv sync
 # Environment Variables
 cp .env.example .env
 # Edit .env with your Google AI Studio, Telegram, and Neon DB credentials.
-
-# Start System
-uv run python app.py
 ```
 
 ### 3. Usage
-**Telegram Chat**: Start the bot and simply say **"Archive row 500"** or **"Today's archive"**.
-**Local Web UI**: Use `uv run adk web app.py` for debugging and real-time trace inspection.
+**Telegram Chat**:
+```bash
+uv run python app.py
+```
+*Simply say **"Archive row 500"** or **"Today's archive"** to the bot.*
+
+**Local Web UI (Debugging)**:
+```bash
+uv run adk web .
+```
+*Note: Point ADK to the root directory containing the agents.*
 
 ## 🛡️ Anti-Hallucination Protocol
 - **Deterministic Row Access**: Uses static indexing for 100% repeatability.
-- **Author Matcher**: Forces fuzzy-to-exact mapping against live web records.
+- **Author Matcher**: Forces fuzzy-to-exact mapping against live web records at **igboarchives.com.ng**.
 - **Honest Null Protocol**: Strictly forbids LLM fabrication if data is missing.
