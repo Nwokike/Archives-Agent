@@ -1,6 +1,7 @@
 import os
-from google.adk.agents import Agent, LoopAgent
+from google.adk.agents import Agent, LoopAgent, BaseAgent
 from google.adk.models.lite_llm import LiteLlm
+from google.adk.events import Event, EventActions
 from agents.schema import ArchiveCreate
 
 GROQ_API_KEY = os.getenv("GROQ_API_KEY", "")
@@ -92,15 +93,26 @@ OUTPUT MANDATE:
 """
 )
 
-def critic_approved(ctx) -> bool:
-    """Stop condition: breaks the loop if the critic outputs APPROVED."""
-    status = ctx.state.get("critic_status", "")
-    return "APPROVED" in status.upper()
+class CriticEscalationChecker(BaseAgent):
+    """A deterministic agent that checks the critic's status and terminates the loop."""
+    name: str = "escalation_checker"
+    
+    async def _run_async_impl(self, context):
+        # Read the status from the shared session state
+        status = context.state.get("critic_status", "")
+        
+        if "APPROVED" in status.upper():
+            # Yielding an event with escalate=True acts as the loop breaker
+            yield Event(actions=EventActions(escalate=True))
+        else:
+            # Otherwise, do nothing and let the LoopAgent restart the cycle
+            yield Event(content="Draft not approved. Continuing refinement loop.")
+
+escalation_checker = CriticEscalationChecker()
 
 synthesis_loop = LoopAgent(
     name="synthesis_loop",
     max_iterations=3,
-    sub_agents=[writer, critic],
-    stop_condition=critic_approved,
+    sub_agents=[writer, critic, escalation_checker],
     description="Loop Agent: Ensures cultural authenticity and metadata precision."
 )
