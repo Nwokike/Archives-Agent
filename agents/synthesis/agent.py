@@ -67,6 +67,7 @@ critic = Agent(
     name="historical_validator",
     model=critic_model,
     description="Agent D: The evaluator. Enforcer of constraints.",
+    output_key="critic_status",
     instruction="""
 ROLE:
 You are an Elite Archival Quality Assurance Validator.
@@ -91,9 +92,15 @@ OUTPUT MANDATE:
 """
 )
 
+def critic_approved(ctx) -> bool:
+    """Stop condition: breaks the loop if the critic outputs APPROVED."""
+    status = ctx.state.get("critic_status", "")
+    return "APPROVED" in status.upper()
+
 synthesis_loop = LoopAgent(
     name="synthesis_loop",
     max_iterations=3,
     sub_agents=[writer, critic],
+    stop_condition=critic_approved,
     description="Loop Agent: Ensures cultural authenticity and metadata precision."
 )
