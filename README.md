@@ -1,30 +1,37 @@
 # 🇳🇬 Igbo Archives Autonomous Ingestion System (HQ)
 
 [![AI-Powered](https://img.shields.io/badge/AI-Autonomous%20Agents-blueviolet)](https://google.github.io/google-adk/)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![License: Proprietary](https://img.shields.io/badge/License-Proprietary-red.svg)](https://kiri.ng/about)
 
-An enterprise-grade, fully autonomous AI pipeline designed for **Daily Cultural Archiving**. This system preserves Igbo heritage by intelligently fetching colonial-era metadata from Hugging Face, performing deep visual analysis (Gemini 2.5/3.1), and publishing validated entries to the [Igbo Archives](https://igboarchives.com.ng) platform via MCP.
+An enterprise-grade, fully autonomous AI pipeline designed for **Daily Cultural Archiving**. This system preserves Igbo heritage by intelligently fetching colonial-era metadata from Hugging Face, performing deep visual analysis (Gemini/Groq), and publishing validated entries to the [Igbo Archives](https://igboarchives.com.ng) platform via MCP.
 
-## 🏗️ Architecture: The Agent Hive
-The system follows a **Supervised Hierarchical Pipeline** using the **Agent-as-a-Tool** pattern:
+## 🏗️ Architecture: Native ADK 2026 Pipeline
 
-- **Orchestrator** (`gemini-2.5-flash-lite`): The supervisor. Coordinates the hive by delegating to sub-agents as tools.
-- **Fetcher**: Meta-data first deterministic row retrieval from HF.
-- **Vision Analyst**: Visual context reporter (Quarantined from metadata).
-- **Synthesis Loop**: Iterative Writer/Critic refinement (`2.5-flash-lite` critic).
-- **Publisher**: Final commit engine via MCP.
+The system utilizes the **Google ADK v1.26** framework, following a **Sequential & Loop Agent** pattern for deterministic, stateful execution.
 
-## ⚖️ Policy: 2026 Stability & Discovery
-- **Discovery**: Only the `Orchestrator` is exposed as a standalone app to `adk web agents` for a cleaner UI. Sub-agents are managed as internal tools.
-- **Stability**: Critical paths use the `gemini-2.5` series to bypass the high-demand spikes of the `3.x` preview line.
+- **Orchestrator** (`moonshotai/kimi-k2-instruct-0905` via LiteLLM): The conversational supervisor. Oversees the entire state and delegates to the `archive_pipeline`.
+- **`execute_archive_pipeline`** (SequentialAgent):
+    - **Fetcher**: Deterministic metadata retrieval using `{current_index}` template variables.
+    - **Taxonomy Mapper**: Programmatic injection of live taxonomy for entity resolution.
+    - **Vision Analyst**: Visual context reporter (Quarantined from metadata).
+    - **Synthesis Loop** (LoopAgent): Iterative Writer/Critic refinement using Kiri's Anti-Hallucination protocol.
+    - **Publisher**: Final commit engine with native `ToolContext` state increments.
+
+## 💾 Native Persistence & Memory
+
+This system achieves **Zero-Nonsense State Management** by leveraging ADK's native features:
+- **Persistent State**: Leverages `DatabaseSessionService` with Neon PostgreSQL for long-running session awareness.
+- **Instruction Templates**: State variables like `{current_index}` and `{dataset_id}` are natively injected into agent instructions, ensuring all agents are grounded in the same reality.
+- **State Hydration**: Includes a `bootstrap_state` callback for seamless `adk web` compatibility.
 
 ## 🛠️ Tech Stack
 -   **Framework**: [Google ADK v1.26](https://google.github.io/google-adk/)
 -   **Execution**: Python 3.13 with [uv](https://github.com/astral-sh/uv).
--   **Persistence**: Neon DB (Postgres) with `DatabaseSessionService`.
--   **Integrations**: Hugging Face Hub, Telegram Bot API, Custom MCP Client.
+-   **Models**: LiteLLM integration for **Groq (Moonshot Kimi)** and **Gemini 2.0/3.1**.
+-   **Persistence**: Neon Serverless Postgres with `postgresql+psycopg://` driver.
+-   **Integrations**: Hugging Face Hub, Telegram Bot, Custom MCP.
 
-## 🚀 Installation & Usage
+## 🚀 Usage
 
 ### 1. Setup
 ```bash
@@ -33,18 +40,21 @@ git clone https://github.com/Nwokike/Archives-Agent.git
 cd archives-agent
 uv sync
 
-# Configure Environment
-# Ensure .env contains GOOGLE_API_KEY, TELEGRAM_BOT_TOKEN, NEON_DATABASE_URL, IGBO_ARCHIVES_TOKEN
+# Ensure .env contains:
+# GOOGLE_API_KEY, GROQ_API_KEY, NEON_DATABASE_URL, IGBO_ARCHIVES_TOKEN
 ```
 
-### 2. Run the Production Suite
+### 2. Autonomous Run
 ```bash
-# Start the Telegram Bot + Dynamic Status Streaming
-uv run python app.py
+# Start the production bot suite
+python app.py
 ```
 
 ### 3. Debug with ADK Web
 ```bash
-# Discover the Orchestrator App
-uv run adk web agents
+# Start the Web UI for agent inspection
+adk web agents
 ```
+
+---
+Copyright © 2026 [Kiri Research Labs](https://kiri.ng/about). All rights reserved. Proprietary software.
