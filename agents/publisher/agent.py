@@ -28,7 +28,7 @@ async def create_archives_submission(payload: dict, image_path: str, tool_contex
 
 # Publisher Agent
 publisher_model = LiteLlm(
-    model="groq/openai/gpt-oss-20b",
+    model="groq/meta-llama/llama-4-scout-17b-16e-instruct",
     api_key=os.getenv("GROQ_API_KEY")
 )
 

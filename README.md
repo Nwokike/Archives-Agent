@@ -1,37 +1,26 @@
 # 🇳🇬 Igbo Archives Autonomous Ingestion System (HQ)
 
 [![AI-Powered](https://img.shields.io/badge/AI-Autonomous%20Agents-blueviolet)](https://google.github.io/google-adk/)
-[![License: Proprietary](https://img.shields.io/badge/License-Proprietary-red.svg)](https://kiri.ng/about)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-An enterprise-grade, fully autonomous AI pipeline designed for **Daily Cultural Archiving**. This system preserves Igbo heritage by intelligently fetching colonial-era metadata from Hugging Face, performing deep visual analysis (Gemini/Groq), and publishing validated entries to the [Igbo Archives](https://igboarchives.com.ng) platform via MCP.
+An enterprise-grade, fully autonomous AI pipeline designed for **Daily Cultural Archiving**. This system preserves Igbo heritage by intelligently fetching colonial-era metadata from Hugging Face, performing deep visual analysis, and publishing validated entries to the [Igbo Archives](https://igboarchives.com.ng) platform via MCP.
 
-## 🏗️ Architecture: Native ADK 2026 Pipeline
+## 🏗️ Architecture: The Agent Hive
+The system follows a **Supervised Hierarchical Pipeline** using the **Agent-as-a-Tool** pattern:
 
-The system utilizes the **Google ADK v1.26** framework, following a **Sequential & Loop Agent** pattern for deterministic, stateful execution.
-
-- **Orchestrator** (`moonshotai/kimi-k2-instruct-0905` via LiteLLM): The conversational supervisor. Oversees the entire state and delegates to the `archive_pipeline`.
-- **`execute_archive_pipeline`** (SequentialAgent):
-    - **Fetcher**: Deterministic metadata retrieval using `{current_index}` template variables.
-    - **Taxonomy Mapper**: Programmatic injection of live taxonomy for entity resolution.
-    - **Vision Analyst**: Visual context reporter (Quarantined from metadata).
-    - **Synthesis Loop** (LoopAgent): Iterative Writer/Critic refinement using Kiri's Anti-Hallucination protocol.
-    - **Publisher**: Final commit engine with native `ToolContext` state increments.
-
-## 💾 Native Persistence & Memory
-
-This system achieves **Zero-Nonsense State Management** by leveraging ADK's native features:
-- **Persistent State**: Leverages `DatabaseSessionService` with Neon PostgreSQL for long-running session awareness.
-- **Instruction Templates**: State variables like `{current_index}` and `{dataset_id}` are natively injected into agent instructions, ensuring all agents are grounded in the same reality.
-- **State Hydration**: Includes a `bootstrap_state` callback for seamless `adk web` compatibility.
+- **Orchestrator**: The supervisor. Coordinates the hive by delegating to sub-agents as tools.
+- **Fetcher**: Meta-data first deterministic row retrieval from HF.
+- **Vision Analyst**: Visual context reporter (Quarantined from metadata).
+- **Synthesis Loop**: Iterative Writer/Critic refinement.
+- **Publisher**: Final commit engine via MCP.
 
 ## 🛠️ Tech Stack
 -   **Framework**: [Google ADK v1.26](https://google.github.io/google-adk/)
 -   **Execution**: Python 3.13 with [uv](https://github.com/astral-sh/uv).
--   **Models**: LiteLLM integration for **Groq (Moonshot Kimi)** and **Gemini 2.0/3.1**.
--   **Persistence**: Neon Serverless Postgres with `postgresql+psycopg://` driver.
--   **Integrations**: Hugging Face Hub, Telegram Bot, Custom MCP.
+-   **Persistence**: Neon DB (Postgres) with `DatabaseSessionService`.
+-   **Integrations**: Hugging Face Hub, Telegram Bot API, Custom MCP Client.
 
-## 🚀 Usage
+## 🚀 Installation & Usage
 
 ### 1. Setup
 ```bash
@@ -40,21 +29,18 @@ git clone https://github.com/Nwokike/Archives-Agent.git
 cd archives-agent
 uv sync
 
-# Ensure .env contains:
-# GOOGLE_API_KEY, GROQ_API_KEY, NEON_DATABASE_URL, IGBO_ARCHIVES_TOKEN
+# Configure Environment
+# Ensure .env contains GOOGLE_API_KEY, TELEGRAM_BOT_TOKEN, NEON_DATABASE_URL, IGBO_ARCHIVES_TOKEN
 ```
 
-### 2. Autonomous Run
+### 2. Run the Production Suite
 ```bash
-# Start the production bot suite
-python app.py
+# Start the Telegram Bot + Dynamic Status Streaming
+uv run python app.py
 ```
 
 ### 3. Debug with ADK Web
 ```bash
-# Start the Web UI for agent inspection
-adk web agents
+# Discover the Orchestrator App
+uv run adk web agents
 ```
-
----
-Copyright © 2026 [Kiri Research Labs](https://kiri.ng/about). All rights reserved. Proprietary software.

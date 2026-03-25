@@ -20,7 +20,7 @@ class ArchiveCreate(BaseModel):
 
 # Agent C: The Writer
 writer_model = LiteLlm(
-    model="groq/llama-3.3-70b-versatile",
+    model="groq/moonshotai/kimi-k2-instruct-0905",
     api_key=os.getenv("GROQ_API_KEY")
 )
 
