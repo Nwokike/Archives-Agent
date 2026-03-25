@@ -1,5 +1,5 @@
 import os
-from google.adk.agents import Agent, Context
+from google.adk.agents import Agent, Context, SequentialAgent
 from google.adk.models.lite_llm import LiteLlm
 
 # --- The Pipeline (Sequential Steps) ---
@@ -7,7 +7,6 @@ from agents.fetcher.agent import data_fetcher, taxonomy_mapper
 from agents.vision.agent import vision
 from agents.synthesis.agent import synthesis_loop
 from agents.publisher.agent import publisher
-from google.adk.agents import SequentialAgent
 
 archive_pipeline = SequentialAgent(
     name="execute_archive_pipeline",
@@ -16,12 +15,15 @@ archive_pipeline = SequentialAgent(
 )
 
 TARGET_DATASET = os.getenv("TARGET_DATASET", "nwokikeonyeka/maa-cambridge-south-eastern-nigeria")
+GROQ_API_KEY = os.getenv("GROQ_API_KEY", "")
 
 # --- The Orchestrator (Root Agent) ---
 
 orchestrator_model = LiteLlm(
     model="groq/moonshotai/kimi-k2-instruct",
-    api_key=os.getenv("GROQ_API_KEY")
+    api_key=GROQ_API_KEY,
+    # RESILIENCE: Fallback to Gemini 2.5 Flash Lite if Groq hits rate limits
+    fallbacks=["gemini/gemini-2.5-flash-lite"]
 )
 
 def bootstrap_state(callback_context: Context):
@@ -30,7 +32,7 @@ def bootstrap_state(callback_context: Context):
     if "current_index" not in state:
         state["current_index"] = 0
     if "dataset_id" not in state:
-        state["dataset_id"] = os.getenv("TARGET_DATASET", "nwokikeonyeka/maa-cambridge-south-eastern-nigeria")
+        state["dataset_id"] = TARGET_DATASET
 
 orchestrator = Agent(
     name="orchestrator",
@@ -39,21 +41,24 @@ orchestrator = Agent(
     sub_agents=[archive_pipeline],
     before_agent_callback=bootstrap_state,
     instruction="""
-    You are the Orchestrator of the 'Daily Cultural Archiving' pipeline.
-    Your mission is to autonomously process historical data from Hugging Face into the Igbo Archives platform.
-    
-    NATIVE PERSISTENCE AWARENESS:
-    - Target Dataset: {dataset_id}
-    - Current Unarchived Index: {current_index}
-    
-    CRITICAL ROUTING RULES:
-    1. STATE CHECK: If the user provides an index, use it. Otherwise, you can use the 'Current Unarchived Index' ({current_index}) which is natively available to you from the session state.
-    2. DELEGATION: If the user wants to start archiving or if it's the natural next step, CALL 'transfer_to_execute_archive_pipeline' to start the process for the target row.
-    
-    STRICT COMPLIANCE:
-    - Honest Null Protocol: Use JSON `null` for missing data.
-    - No Hallucinations. No AI Speak. No Em-Dashes.
-    """
+ROLE:
+You are the Chief Orchestrator of the Igbo Archives Autonomous Ingestion System.
+
+GOAL:
+Listen to the user's command, trigger the `execute_archive_pipeline` tool, and report the final result back to the user.
+
+AVAILABLE DATA:
+- Target Dataset: {dataset_id}
+- Current Unarchived Index: {current_index} (This is natively available to you from the session state).
+
+STRICT RULES:
+1. STATE CHECK: If the user explicitly provides a row index (e.g., "Post row 5"), use it. Otherwise, use the `Current Unarchived Index` ({current_index}).
+2. NO AI SPEAK: Do not use flowery language. Keep your responses clinical, professional, and brief.
+3. HONEST NULL: Acknowledge missing data gracefully; do not invent details.
+
+TOOL MANDATE:
+When the user requests to post or archive, you MUST call your tool `transfer_to_execute_archive_pipeline`. Once the pipeline finishes, summarize the final outcome to the user based on the system state.
+"""
 )
 
 root_agent = orchestrator

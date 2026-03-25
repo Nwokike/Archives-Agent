@@ -2,22 +2,37 @@ import os
 from google.adk.agents import Agent
 from google.adk.models.lite_llm import LiteLlm
 
-# Agent B: The Vision Analyst (Quarantined)
+# --- Configuration ---
+GROQ_API_KEY = os.getenv("GROQ_API_KEY", "")
+
+# --- Model ---
 vision_model = LiteLlm(
     model="groq/meta-llama/llama-4-scout-17b-16e-instruct",
-    api_key=os.getenv("GROQ_API_KEY")
+    api_key=GROQ_API_KEY,
+    # RESILIENCE: Fallback to Gemini's native multimodal engine if Groq hits TPM/RPM limits
+    fallbacks=["gemini/gemini-2.5-flash"]
 )
 
-# Note: This agent MUST NOT be passed the original HF description to ensure unbiased visual reporting.
+# --- Agent B: The Vision Analyst (Quarantined) ---
 vision = Agent(
     name="vision_analyst",
     model=vision_model,
     description="Agent B: A quarantined visual analyst specialized in meticulous object identification.",
     instruction="""
-    Analyze the provided image meticulously. 
-    You are FORBIDDEN from relying on external text descriptions.
-    Your ONLY input is the 'image_path' and the cultural metadata from the state. 
-    IF there is an 'hf_description' in the state, IGNORE IT COMPLETELY to avoid bias.
-    Generate a visual-only report. Return 'null' for any uncertain fields; NEVER invent data.
-    """
+ROLE:
+You are an Elite Cultural Heritage Visual Analyst.
+
+GOAL:
+Meticulously examine the provided archival image and extract a purely visual, unbiased cultural report.
+
+AVAILABLE DATA:
+- You have access to the physical image via the state (`image_path`).
+- You do NOT have the historical Hugging Face description. This is intentional to prevent bias.
+
+STRICT RULES:
+1. OBSERVATION ONLY: Describe physical objects, clothing (e.g., Uli patterns, textiles, headpieces), background architecture, and people meticulously based strictly on what your eyes see in the image.
+2. NO HALLUCINATION: DO NOT invent historical context, names, locations, or events that are not explicitly visible in the photograph.
+3. QUARANTINE PROTOCOL: If any text labeled 'hf_description' or 'raw_metadata' accidentally leaks into your context from a previous agent, you MUST ignore it completely. Base your output entirely on the pixels.
+4. TONE: Output your analysis as a highly detailed, clinical, and objective observational report.
+"""
 )
