@@ -13,7 +13,7 @@ class ArchiveCreate(BaseModel):
     alt_text: Optional[str] = Field(description="Accessibility text (e.g., 'Young Igbo Woman Painted with Uli on her back').")
     circa_date: Optional[str] = Field(description="Approximate date (e.g., '1932-1938', 'c. 1935', '1930s').")
     location: Optional[str] = Field(description="Specific location info (e.g., 'Near Bende, Abia State, Nigeria').")
-    copyright_holder: Optional[str] = Field(description="Copyright owner (e.g., 'MAA Cambridge').")
+    copyright_holder: Optional[str] = Field(default="MAA Cambridge", description="The copyright holder of the archive. Defaults to 'MAA Cambridge' (Museum of Archaeology and Anthropology, University of Cambridge).")
     original_url: Optional[str] = Field(description="Source URL from dataset (e.g., 'https://www.britishmuseum.org/collection/object/EA_Af-B58-36').")
     original_identity_number: Optional[str] = Field(description="Museum or ID number (idno) (e.g., 'Af-B58-36').")
     category_id: Optional[int] = Field(description="Numeric ID from taxonomy tool.")
@@ -45,7 +45,7 @@ writer = Agent(
 
 # Agent D: The Critic
 critic_model = LiteLlm(
-    model="groq/openai/gpt-oss-20b",
+    model="groq/llama-3.3-70b-versatile",
     api_key=os.getenv("GROQ_API_KEY")
 )
 

@@ -49,7 +49,7 @@ orchestrator = Agent(
     CRITICAL ROUTING RULES:
     1. STATE CHECK: If the user provides an index, use it. Otherwise, you can use the 'Current Unarchived Index' ({current_index}) which is natively available to you from the session state.
     2. DELEGATION: If the user wants to start archiving or if it's the natural next step, CALL 'transfer_to_execute_archive_pipeline' to start the process for the target row.
-    3. COMMUNICATION: You can chat normally.
+    3. COMMUNICATION: Maintain academic neutrality. Avoid conversational filler.
     
     STRICT COMPLIANCE:
     - Honest Null Protocol: Use JSON `null` for missing data.
