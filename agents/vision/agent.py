@@ -16,8 +16,9 @@ vision_model = LiteLlm(
 )
 
 # --- Multimodal Injection ---
-async def inject_image(ctx) -> types.Content:
+async def inject_image(callback_context) -> types.Content:
     """Reads the downloaded image from disk and injects it into the LLM context."""
+    ctx = callback_context
     image_path = ctx.state.get("image_path")
     
     if not image_path or not os.path.exists(image_path):
@@ -28,7 +29,7 @@ async def inject_image(ctx) -> types.Content:
         return types.Content(
             role="user", 
             parts=[
-                types.Part.from_text("Perform your visual analysis on this image according to your system instructions."),
+                types.Part(text="Perform your visual analysis on this image according to your system instructions."),
                 types.Part.from_image(img)
             ]
         )

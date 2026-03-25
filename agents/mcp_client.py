@@ -7,7 +7,7 @@ from typing import Dict, Any, Optional
 
 load_dotenv()
 
-MCP_URL = "https://archives.kiri.ng/api/mcp/"
+MCP_URL = "https://igboarchives.com.ng/api/mcp/"
 API_TOKEN = os.getenv("IGBO_ARCHIVES_TOKEN")
 
 async def call_mcp_tool(server_name: str, tool_name: str, arguments: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:

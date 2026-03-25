@@ -66,9 +66,7 @@ async def process_hf_row(index: int) -> dict:
             raise ValueError("FATAL: No image found in the Hugging Face record. Vision agent cannot proceed.")
             
         return {
-            "raw_metadata": metadata, 
-            "original_identity_number": metadata.get("idno"),
-            "original_url": record.get("source_url"),
+            "raw_metadata": record, 
             "image_path": image_local_path
         }
     except Exception as e:
