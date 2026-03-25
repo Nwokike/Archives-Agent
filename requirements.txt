@@ -1,0 +1,15 @@
+google-adk[extensions]
+python-dotenv
+python-telegram-bot
+huggingface-hub
+requests
+psycopg2-binary
+psycopg[binary]
+httpx
+pydantic
+fastapi
+uvicorn
+python-multipart
+google-cloud-tasks
+pytest
+pytest-asyncio

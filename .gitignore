@@ -3,6 +3,7 @@ __pycache__/
 *.pyc
 /tmp/
 .venv/
+venv/
 **/.adk/
 **/__pycache__/
 /brain/
