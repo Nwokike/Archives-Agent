@@ -8,7 +8,16 @@ from agents.mcp_client import call_mcp_tool
 async def create_archives_submission(payload: dict, tool_context: ToolContext) -> dict:
     """Publishes the validated archival record to the central platform."""
     
-    # 1. THE FIREWALL: Extract absolute truth from system state, NOT the LLM
+    # 1. PRE-FLIGHT CHECK: Ensure the image actually exists before publishing
+    # This prevents firing a broken payload if the Fetcher silently failed earlier.
+    image_path = tool_context.state.get("image_path", "")
+    if not image_path or not os.path.exists(image_path):
+        return {
+            "status": "FAILURE",
+            "error": "FATAL ABORT: Valid image path not found. Pipeline failed in an earlier stage."
+        }
+
+    # 2. THE FIREWALL: Extract absolute truth from system state, NOT the LLM
     critic_status = str(tool_context.state.get("critic_status", ""))
     
     if "APPROVED" not in critic_status:
@@ -17,19 +26,17 @@ async def create_archives_submission(payload: dict, tool_context: ToolContext) -
             "status": "FAILURE", 
             "error": f"FATAL ABORT: Critic did not approve this payload. Status: {critic_status}"
         }
-        
-    image_path = tool_context.state.get("image_path", "")
 
     try:
         # Prepare the body based on the REST API documentation
         body = payload.copy()
-        if image_path:
-            body["image"] = f"file://{image_path}"
+        # We know image_path is valid now due to the pre-flight check
+        body["image"] = f"file://{image_path}"
         
-        # 2. Execute MCP Upload
+        # 3. Execute MCP Upload
         response = await call_mcp_tool("igbo-archives", "create_archives", {"body": body})
         
-        # 3. EXPLICIT PERSISTENCE: Save progress for tomorrow
+        # 4. EXPLICIT PERSISTENCE: Save progress for tomorrow
         # Increment index in shared memory
         tool_context.state["current_index"] = tool_context.state.get("current_index", 0) + 1
         
