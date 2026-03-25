@@ -9,7 +9,7 @@ GROQ_API_KEY = os.getenv("GROQ_API_KEY", "")
 writer_model = LiteLlm(
     model="groq/moonshotai/kimi-k2-instruct-0905",
     api_key=GROQ_API_KEY,
-    fallbacks=["gemini/gemini-3-flash"]
+    fallbacks=["groq/openai/gpt-oss-120b", "groq/meta-llama/llama-3.3-70b-versatile"]
 )
 
 writer = Agent(
@@ -61,7 +61,7 @@ Additional style references:
 critic_model = LiteLlm(
     model="groq/llama-3.3-70b-versatile",
     api_key=GROQ_API_KEY,
-    fallbacks=["gemini/gemini-2.5-flash-lite"]
+    fallbacks=["groq/openai/gpt-oss-120b", "groq/qwen/qwen3-32b"]
 )
 
 critic = Agent(

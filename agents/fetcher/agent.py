@@ -79,7 +79,7 @@ data_fetcher = Agent(
     model=LiteLlm(
         model="groq/moonshotai/kimi-k2-instruct",
         api_key=GROQ_API_KEY,
-        fallbacks=["gemini/gemini-2.5-flash"]
+        fallbacks=["groq/openai/gpt-oss-120b", "groq/meta-llama/llama-3.3-70b-versatile"]
     ), 
     description="Agent A1: Raw Metadata Retrieval from Hugging Face.",
     tools=[process_hf_row],

@@ -22,8 +22,8 @@ GROQ_API_KEY = os.getenv("GROQ_API_KEY", "")
 orchestrator_model = LiteLlm(
     model="groq/moonshotai/kimi-k2-instruct",
     api_key=GROQ_API_KEY,
-    # RESILIENCE: Fallback to Gemini 2.5 Flash Lite if Groq hits rate limits
-    fallbacks=["gemini/gemini-2.5-flash-lite"]
+    # RESILIENCE: Fallback chain of high-capacity Groq models
+    fallbacks=["groq/openai/gpt-oss-120b", "groq/meta-llama/llama-3.3-70b-versatile"]
 )
 
 def bootstrap_state(callback_context: Context):

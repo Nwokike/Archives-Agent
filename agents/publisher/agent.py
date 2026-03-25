@@ -58,8 +58,7 @@ GROQ_API_KEY = os.getenv("GROQ_API_KEY", "")
 publisher_model = LiteLlm(
     model="groq/meta-llama/llama-4-scout-17b-16e-instruct",
     api_key=GROQ_API_KEY,
-    # RESILIENCE: Fallback to Gemini 2.5 Flash Lite for fast execution if Groq goes down
-    fallbacks=["gemini/gemini-2.5-flash-lite"]
+    fallbacks=["groq/openai/gpt-oss-120b", "groq/meta-llama/llama-3.3-70b-versatile"]
 )
 
 # --- Agent E: The Publisher ---
