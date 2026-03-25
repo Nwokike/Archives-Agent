@@ -8,4 +8,3 @@ __pycache__/
 /brain/
 .gemini/
 data.jsonl
-hf_test.py

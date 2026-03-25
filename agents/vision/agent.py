@@ -1,10 +1,17 @@
+import os
 from google.adk.agents import Agent
+from google.adk.models.lite_llm import LiteLlm
 
 # Agent B: The Vision Analyst (Quarantined)
+vision_model = LiteLlm(
+    model="groq/meta-llama/llama-4-scout-17b-16e-instruct",
+    api_key=os.getenv("GROQ_API_KEY")
+)
+
 # Note: This agent MUST NOT be passed the original HF description to ensure unbiased visual reporting.
 vision = Agent(
     name="vision_analyst",
-    model="gemini-2.5-flash",
+    model=vision_model,
     description="Agent B: A quarantined visual analyst specialized in meticulous object identification.",
     instruction="""
     Analyze the provided image meticulously. 

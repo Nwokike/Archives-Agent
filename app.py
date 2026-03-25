@@ -5,6 +5,8 @@ import time
 from datetime import datetime
 from dotenv import load_dotenv
 
+os.environ["HF_HUB_CACHE"] = "/tmp/hf_cache"
+
 if sys.platform == "win32":
     asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
 from fastapi import FastAPI, Request
@@ -38,6 +40,19 @@ runner = Runner(
 
 STATIC_SESSION_ID = "global_archive_tracker"
 DATASET_ID = "nwokikeonyeka/maa-cambridge-south-eastern-nigeria"
+
+# --- ADK Event Bubbling Fix (UI Callback Scope Bug) ---
+async def before_agent_callback(ctx):
+    ctx.state["active_agent"] = ctx.agent_name
+    # Modifying state forces ADK to bubble an Event to the runner root!
+    return None
+
+from agents.fetcher.agent import fetcher
+from agents.vision.agent import vision
+from agents.synthesis.agent import writer, critic
+from agents.publisher.agent import publisher
+for ag in [orchestrator, fetcher, vision, writer, critic, publisher]:
+    ag.before_agent_callback = before_agent_callback
 
 # --- Status Management ---
 STATUS_MAP = {
@@ -185,16 +200,16 @@ async def run_pipeline(update: Update, bot: Bot):
         else:
             await bot.send_message(chat_id, "🏁 **Pipeline Finished** (No records processed)")
 
-        if image_to_cleanup and os.path.exists(image_to_cleanup):
-            try: os.remove(image_to_cleanup)
-            except: pass
+        # ADK persistent memory is now managed natively inside the Publisher agent tools.
+        # This prevents double-incrementing when multiple agents touch the state.
 
         if image_to_cleanup and os.path.exists(image_to_cleanup):
             try: os.remove(image_to_cleanup)
             except: pass
 
-        if image_to_cleanup and os.path.exists(image_to_cleanup):
-            try: os.remove(image_to_cleanup)
+        import shutil
+        if os.path.exists("/tmp/hf_cache"):
+            try: shutil.rmtree("/tmp/hf_cache")
             except: pass
 
 # --- Webhook Mode (Cloud Run) ---
@@ -204,11 +219,47 @@ tg_bot = Bot(token=bot_token) if bot_token else None
 
 @app.post("/webhook")
 async def telegram_webhook(request: Request):
+    import json
+    payload = await request.json()
+    
+    if os.getenv("K_SERVICE"):
+        # Cloud Run: push to Cloud Tasks
+        from google.cloud import tasks_v2
+        client = tasks_v2.CloudTasksClient()
+        project = os.getenv("GOOGLE_CLOUD_PROJECT", "project-id")
+        location = os.getenv("GCP_LOCATION", "us-central1")
+        queue = os.getenv("GCP_QUEUE", "archives-queue")
+        url = os.getenv("WORKER_URL", "https://your-cloud-run-url/worker")
+        
+        parent = client.queue_path(project, location, queue)
+        task = {
+            "http_request": {
+                "http_method": tasks_v2.HttpMethod.POST,
+                "url": url,
+                "headers": {"Content-type": "application/json"},
+                "body": json.dumps(payload).encode()
+            }
+        }
+        try:
+            client.create_task(request={"parent": parent, "task": task})
+        except Exception as e:
+            print(f"Error publishing to Cloud Tasks: {e}")
+            update = Update.de_json(payload, tg_bot)
+            if update.message and update.message.text:
+                asyncio.create_task(run_pipeline(update, tg_bot))
+    else:
+        update = Update.de_json(payload, tg_bot)
+        if update.message and update.message.text:
+            asyncio.create_task(run_pipeline(update, tg_bot))
+    return {"status": "ok"}
+
+@app.post("/worker")
+async def telegram_worker(request: Request):
     payload = await request.json()
     update = Update.de_json(payload, tg_bot)
     if update.message and update.message.text:
-        asyncio.create_task(run_pipeline(update, tg_bot))
-    return {"status": "ok"}
+        await run_pipeline(update, tg_bot)
+    return {"status": "completed"}
 
 @app.get("/")
 def health():

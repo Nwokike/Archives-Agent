@@ -6,7 +6,7 @@ readme = "README.md"
 requires-python = "==3.13.*"
 license = { text = "MIT" }
 dependencies = [
-    "google-adk",
+    "google-adk[extensions]",
     "python-dotenv",
     "python-telegram-bot",
     "huggingface-hub",
@@ -15,9 +15,9 @@ dependencies = [
     "psycopg[binary]",
     "httpx",
     "pydantic",
-    "fastapi>=0.135.2",
-    "uvicorn>=0.42.0",
-    "python-multipart>=0.0.22",
+    "fastapi",
+    "uvicorn",
+    "python-multipart",
 ]
 
 [build-system]
