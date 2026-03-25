@@ -2,10 +2,13 @@ import sys
 import os
 import asyncio
 import time
+import tempfile
 from datetime import datetime
 from dotenv import load_dotenv
 
-os.environ["HF_HUB_CACHE"] = "/tmp/hf_cache"
+# 1. OS-Agnostic Cache Path
+HF_CACHE_DIR = os.path.join(tempfile.gettempdir(), "hf_cache")
+os.environ["HF_HUB_CACHE"] = HF_CACHE_DIR
 
 if sys.platform == "win32":
     asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
@@ -47,18 +50,22 @@ async def before_agent_callback(ctx):
     # Modifying state forces ADK to bubble an Event to the runner root!
     return None
 
-from agents.fetcher.agent import fetcher
+# 2. Fixed Imports
+from agents.fetcher.agent import data_fetcher, taxonomy_mapper
 from agents.vision.agent import vision
 from agents.synthesis.agent import writer, critic
 from agents.publisher.agent import publisher
-for ag in [orchestrator, fetcher, vision, writer, critic, publisher]:
+
+# 3. Protected Callbacks: Only apply to agents that don't already have one
+for ag in [data_fetcher, vision, writer, critic, publisher]:
     ag.before_agent_callback = before_agent_callback
 
-# --- Status Management ---
+# 4. Corrected Status Map Keys
 STATUS_MAP = {
-    "fetcher_taxonomist": ("⚙️ Fetching Metadata", "✅ Data Fetched"),
+    "data_fetcher": ("⚙️ Fetching Metadata", "✅ Data Fetched"),
+    "taxonomy_mapper": ("🗺️ Mapping Taxonomy", "✅ Taxonomy Mapped"),
     "vision_analyst": ("👁️ Visual Analysis", "🖼️ Visual Report Done"),
-    "writer": ("✍️ Drafting Record", "📄 Draft Written"),
+    "synthesis_writer": ("✍️ Drafting Record", "📄 Draft Written"),
     "historical_validator": ("⚖️ Validating Draft", "⚖️ Record Approved"),
     "publisher": ("🚀 Final Publishing", "✨ Archive Published!")
 }
@@ -205,11 +212,6 @@ async def run_pipeline(update: Update, bot: Bot):
 
         if image_to_cleanup and os.path.exists(image_to_cleanup):
             try: os.remove(image_to_cleanup)
-            except: pass
-
-        import shutil
-        if os.path.exists("/tmp/hf_cache"):
-            try: shutil.rmtree("/tmp/hf_cache")
             except: pass
 
 # --- Webhook Mode (Cloud Run) ---
