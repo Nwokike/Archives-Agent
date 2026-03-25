@@ -16,12 +16,16 @@ GROQ_API_KEY = os.getenv("GROQ_API_KEY", "")
 async def image_downloader(repo_id: str, file_name: str) -> str:
     try:
         await asyncio.sleep(1.0)
-        path = hf_hub_download(repo_id=repo_id, filename=f"images/{file_name}", repo_type="dataset")
+        # Offload synchronous download to a background thread so the Telegram UI doesn't freeze
+        path = await asyncio.to_thread(
+            hf_hub_download, repo_id=repo_id, filename=f"images/{file_name}", repo_type="dataset"
+        )
         safe_path = os.path.join(tempfile.gettempdir(), os.path.basename(path))
         shutil.copy2(path, safe_path)
         return safe_path
     except Exception as e:
-        return f"ERROR: Image download failed - {str(e)}"
+        # HARD ABORT: Prevent pipeline from proceeding with no image
+        raise RuntimeError(f"FATAL: Image download failed. Aborting pipeline. Details: {str(e)}")
 
 async def mcp_taxonomy_fetcher() -> dict:
     try:
@@ -35,7 +39,9 @@ async def process_hf_row(index: int) -> dict:
     """Extracts the RAW, unadulterated metadata from Hugging Face."""
     try:
         await asyncio.sleep(1.5)
-        metadata_path = hf_hub_download(repo_id=TARGET_DATASET, filename="data.jsonl", repo_type="dataset")
+        metadata_path = await asyncio.to_thread(
+            hf_hub_download, repo_id=TARGET_DATASET, filename="data.jsonl", repo_type="dataset"
+        )
         record = None
         
         with open(metadata_path, 'r', encoding='utf-8') as f:
@@ -45,7 +51,7 @@ async def process_hf_row(index: int) -> dict:
                     break
         
         if not record: 
-            return {"error": f"Record not found at index {index}"}
+            raise ValueError(f"FATAL: Record not found at index {index}. Aborting pipeline.")
         
         # WE PASS THE FULL, UNTRUNCATED METADATA DICTIONARY
         metadata = record.get("metadata", {})
@@ -56,6 +62,8 @@ async def process_hf_row(index: int) -> dict:
         image_local_path = ""
         if file_name:
             image_local_path = await image_downloader(TARGET_DATASET, file_name)
+        else:
+            raise ValueError("FATAL: No image found in the Hugging Face record. Vision agent cannot proceed.")
             
         return {
             "raw_metadata": metadata, 
@@ -64,7 +72,8 @@ async def process_hf_row(index: int) -> dict:
             "image_path": image_local_path
         }
     except Exception as e:
-        return {"error": f"HF processing failed - {str(e)}"}
+        # Re-raise to ensure the agent orchestrator catches the hard stop
+        raise RuntimeError(f"PIPELINE ABORTED: {str(e)}")
 
 
 data_fetcher = Agent(
