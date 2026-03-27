@@ -42,11 +42,12 @@ def _read_jsonl_record(filepath: str, target_index: int) -> Optional[Dict[str, A
 
 # --- Agent Tools ---
 
-async def fetch_hf_record(index: int) -> Dict[str, Any]:
+async def fetch_hf_record(ctx: Context, index: int) -> Dict[str, Any]:
     """
     Extracts the raw metadata and downloads the associated image from Hugging Face for a given row index.
     
     Args:
+        ctx (Context): The ADK session context, injected automatically.
         index (int): The row index of the dataset to fetch.
         
     Returns:
@@ -75,6 +76,10 @@ async def fetch_hf_record(index: int) -> Dict[str, Any]:
             return {"error": f"No image found in the Hugging Face record for index {index}."}
             
         image_local_path = await _download_image(TARGET_DATASET, file_name)
+        
+        # --- FIX: Save to global session state so downstream agents can access it ---
+        ctx.state["image_path"] = image_local_path
+        ctx.state["raw_metadata"] = record
             
         return {
             "raw_metadata": record, 
@@ -100,7 +105,7 @@ orchestrator_model = LiteLlm(
     model="groq/moonshotai/kimi-k2-instruct",
     api_key=GROQ_API_KEY,
     # RESILIENCE: Fallback chain of high-capacity Groq models
-    fallbacks=["groq/openai/gpt-oss-120b", "groq/meta-llama/llama-3.3-70b-versatile"]
+    fallbacks=["groq/openai/gpt-oss-120b", "groq/llama-3.3-70b-versatile"]
 )
 
 archive_pipeline = SequentialAgent(
