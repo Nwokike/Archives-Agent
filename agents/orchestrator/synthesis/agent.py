@@ -44,8 +44,8 @@ Title: Igbo Elder from Awka on Oche Mpata
 Description: This black-and-white photograph from the 1940s by Sylvia Leith-Ross shows a young Igbo girl adorned with traditional Uli body art patterns. She wears a headpiece with feathers and decorative elements, with her back turned to emphasize the designs. Blurred figures in the background suggest a public event. The image highlights the cultural significance of Uli in Igbo identity and aesthetics, as documented in Leith-Ross's book African Conversation Piece (1944).
 Caption: A young Igbo girl painted with Uli. From Sylvia Leith-Ross, African Conversation Piece, London/New York: Hutchinson, 1944.
 Alt Text: Young Igbo Woman Painted with Uli on her back.
-Circa Date: 1932-1938 or 1930s or c1930
-Location: Near Bende, Abia State, Nigeria
+Circa Date: c1930
+Location: Asaba (present-day Delta State, Nigeria). 
 Original URL: https://www.britishmuseum.org/collection/object/EA_Af-B58-36
 Original Identity Number: Af-B58-36
 
@@ -54,7 +54,7 @@ Additional style references:
 - Description should stay factual, neutral, and source-bound.
 - Caption should be concise and publication-like.
 - Alt text should be short and accessible.
-- If present, date and location should stay exact and unembellished.
+- Use the bracketed format for modern place names, like Asaba (present-day Delta State, Nigeria). If the present location is unknown, leave out the brackets and write only the location name. If the location is unknown, leave the location field empty. Also for circa date you can write it like these depending on what is provided 1932-1938 or 1930s or c1930.
 """
 )
 
