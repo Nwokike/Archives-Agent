@@ -8,7 +8,7 @@ from huggingface_hub import hf_hub_download
 from google.genai import types
 from google.adk.agents import Agent
 from google.adk.models.lite_llm import LiteLlm
-from agents.mcp_client import call_mcp_tool
+from ..mcp_client import call_mcp_tool
 
 TARGET_DATASET = os.getenv("TARGET_DATASET", "nwokikeonyeka/maa-cambridge-south-eastern-nigeria")
 GROQ_API_KEY = os.getenv("GROQ_API_KEY", "")

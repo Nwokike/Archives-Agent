@@ -2,7 +2,7 @@ import os
 from google.adk.agents import Agent, LoopAgent, BaseAgent
 from google.adk.models.lite_llm import LiteLlm
 from google.adk.events import Event, EventActions
-from agents.schema import ArchiveCreate
+from ..schema import ArchiveCreate
 
 GROQ_API_KEY = os.getenv("GROQ_API_KEY", "")
 

@@ -29,8 +29,8 @@ async def inject_image(callback_context) -> types.Content:
         return types.Content(
             role="user", 
             parts=[
-                types.Part(text="Perform your visual analysis on this image according to your system instructions."),
-                types.Part.from_image(img)
+                types.Part.from_text(text="Perform your visual analysis on this image according to your system instructions."),
+                types.Part(img)
             ]
         )
     except Exception as e:

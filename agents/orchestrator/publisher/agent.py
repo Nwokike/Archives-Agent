@@ -2,7 +2,7 @@ import os
 from google.adk.agents import Agent
 from google.adk.models.lite_llm import LiteLlm
 from google.adk.tools import ToolContext
-from agents.mcp_client import call_mcp_tool
+from ..mcp_client import call_mcp_tool
 
 # --- Tool: Final Publication to Igbo Archives ---
 async def create_archives_submission(payload: dict, tool_context: ToolContext) -> dict:

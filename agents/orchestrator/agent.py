@@ -3,10 +3,10 @@ from google.adk.agents import Agent, Context, SequentialAgent
 from google.adk.models.lite_llm import LiteLlm
 
 # --- The Pipeline (Sequential Steps) ---
-from agents.fetcher.agent import data_fetcher, taxonomy_mapper
-from agents.vision.agent import vision
-from agents.synthesis.agent import synthesis_loop
-from agents.publisher.agent import publisher
+from .fetcher.agent import data_fetcher, taxonomy_mapper
+from .vision.agent import vision
+from .synthesis.agent import synthesis_loop
+from .publisher.agent import publisher
 
 archive_pipeline = SequentialAgent(
     name="execute_archive_pipeline",
