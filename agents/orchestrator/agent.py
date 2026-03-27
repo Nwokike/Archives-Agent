@@ -12,7 +12,7 @@ from google.adk.tools.agent_tool import AgentTool
 
 # --- Local Sub-Agent Imports ---
 from .taxonomy.agent import taxonomy_mapper
-from .vision.agent import vision
+from .vision.agent import execute_vision_analysis
 from .synthesis.agent import synthesis_loop
 from .publisher.agent import publisher
 
@@ -106,7 +106,7 @@ orchestrator = Agent(
     model=orchestrator_model, 
     description="The root supervisor for the Igbo Archives Autonomous Ingestion System.",
     sub_agents=[archive_pipeline],
-    tools=[fetch_hf_record, AgentTool(vision)],
+    tools=[fetch_hf_record, execute_vision_analysis],
     before_agent_callback=initialize_session_state,
     instruction="""
 ROLE:

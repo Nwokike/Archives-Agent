@@ -1,4 +1,4 @@
-# 🇳🇬 Igbo Archives Autonomous Ingestion System (HQ)
+# 🇳🇬 Igbo Archives Autonomous Ingestion System
 
 [![AI-Powered](https://img.shields.io/badge/AI-Autonomous%20Agents-blueviolet)](https://google.github.io/google-adk/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
@@ -9,7 +9,7 @@ An enterprise-grade, fully autonomous AI pipeline designed for **Daily Cultural 
 The system follows a **Supervised Hierarchical Pipeline** using the **Agent-as-a-Tool** pattern:
 
 - **Orchestrator**: The supervisor. Coordinates the hive by delegating to sub-agents as tools.
-- **Fetcher**: Meta-data first deterministic row retrieval from HF.
+- **Taxonomist**: Meta-data first deterministic row retrieval from HQ.
 - **Vision Analyst**: Visual context reporter (Quarantined from metadata).
 - **Synthesis Loop**: Iterative Writer/Critic refinement.
 - **Publisher**: Final commit engine via MCP.
@@ -30,7 +30,7 @@ cd archives-agent
 uv sync
 
 # Configure Environment
-# Ensure .env contains GOOGLE_API_KEY, TELEGRAM_BOT_TOKEN, NEON_DATABASE_URL, IGBO_ARCHIVES_TOKEN
+# Ensure .env contains GROK_API_KEY, TELEGRAM_BOT_TOKEN, NEON_DATABASE_URL, IGBO_ARCHIVES_TOKEN
 ```
 
 ### 2. Run the Production Suite
