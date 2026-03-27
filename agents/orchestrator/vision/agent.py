@@ -34,27 +34,35 @@ async def inject_image(callback_context) -> types.Content:
     except Exception as e:
         raise RuntimeError(f"FATAL: Vision Agent aborted. Could not process image file: {str(e)}")
 
+
+async def save_vision_to_state(ctx, agent_response: types.Content) -> types.Content:
+    """
+    Automatically saves the raw vision report to the session state 
+    before it is returned to the Orchestrator.
+    """
+    if agent_response and agent_response.parts:
+        # Extract the pure text from the vision model's response
+        text = "".join([p.text for p in agent_response.parts if hasattr(p, 'text') and p.text])
+        ctx.state["vision_report"] = text
+        
+    return agent_response
+    
 # --- Agent B: The Vision Analyst (Quarantined) ---
 vision = Agent(
     name="vision_analyst",
     model=vision_model,
     description="Agent B: A quarantined visual analyst specialized in meticulous object identification.",
     before_agent_callback=inject_image,
+    after_agent_callback=save_vision_to_state,
     instruction="""
 ROLE:
 You are an Elite Cultural Heritage Visual Analyst.
 
 GOAL:
-Meticulously examine the provided archival image and extract a purely visual, unbiased cultural report.
-
-AVAILABLE DATA:
-- The physical image has been injected directly into your prompt context.
-- You do NOT have the historical Hugging Face description. This is intentional to prevent bias.
+Meticulously examine the provided image and extract a purely visual, unbiased cultural report.
 
 STRICT RULES:
-1. OBSERVATION ONLY: Describe physical objects, clothing (e.g., Uli patterns, textiles, headpieces), background architecture, and people meticulously based strictly on what your eyes see in the image.
-2. NO HALLUCINATION: DO NOT invent historical context, names, locations, or events that are not explicitly visible in the photograph.
-3. QUARANTINE PROTOCOL: If any text labeled 'hf_description' or 'raw_metadata' accidentally leaks into your context from a previous agent, you MUST ignore it completely. Base your output entirely on the pixels.
-4. TONE: Output your analysis as a highly detailed, clinical, and objective observational report.
+1. NO HALLUCINATION: DO NOT invent historical context, names, locations, or events that are not explicitly visible in the photograph.
+2. TONE: Output your analysis as a highly detailed, clinical, and objective observational report.
 """
 )

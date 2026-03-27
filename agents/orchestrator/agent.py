@@ -8,6 +8,7 @@ from typing import Dict, Any, Optional
 from huggingface_hub import hf_hub_download
 from google.adk.agents import Agent, Context, SequentialAgent
 from google.adk.models.lite_llm import LiteLlm
+from google.adk.tools.agent_tool import AgentTool
 
 # --- Local Sub-Agent Imports ---
 from .taxonomy.agent import taxonomy_mapper
@@ -45,30 +46,18 @@ def _read_jsonl_record(filepath: str, target_index: int) -> Optional[Dict[str, A
 async def fetch_hf_record(ctx: Context, index: int) -> Dict[str, Any]:
     """
     Extracts the raw metadata and downloads the associated image from Hugging Face for a given row index.
-    
-    Args:
-        ctx (Context): The ADK session context, injected automatically.
-        index (int): The row index of the dataset to fetch.
-        
-    Returns:
-        dict: A dictionary containing the 'raw_metadata' (dict) and the local 'image_path' (str).
-              If an error occurs, returns a dictionary with an 'error' key.
     """
     try:
-        await asyncio.sleep(1.5) # Rate limit buffering
+        await asyncio.sleep(1.5) 
         
-        # 1. Download metadata file
         metadata_path = await asyncio.to_thread(
             hf_hub_download, repo_id=TARGET_DATASET, filename="data.jsonl", repo_type="dataset"
         )
         
-        # 2. Extract specific record without blocking the event loop
         record = await asyncio.to_thread(_read_jsonl_record, metadata_path, index)
-        
         if not record: 
             return {"error": f"Record not found at index {index}. It may exceed dataset bounds."}
         
-        # 3. Extract image metadata and download
         images = record.get("images", [])
         file_name = images[0].get("file_name") if images else ""
         
@@ -77,7 +66,7 @@ async def fetch_hf_record(ctx: Context, index: int) -> Dict[str, Any]:
             
         image_local_path = await _download_image(TARGET_DATASET, file_name)
         
-        # --- FIX: Save to global session state so downstream agents can access it ---
+        # Saves raw metadata directly to state
         ctx.state["image_path"] = image_local_path
         ctx.state["raw_metadata"] = record
             
@@ -93,7 +82,6 @@ async def fetch_hf_record(ctx: Context, index: int) -> Dict[str, Any]:
 # --- Callbacks ---
 
 def initialize_session_state(callback_context: Context):
-    """Ensures critical state variables exist for template substitution in the prompt."""
     state = callback_context.state
     state.setdefault("current_index", 0)
     state.setdefault("dataset_id", TARGET_DATASET)
@@ -104,14 +92,13 @@ def initialize_session_state(callback_context: Context):
 orchestrator_model = LiteLlm(
     model="groq/moonshotai/kimi-k2-instruct",
     api_key=GROQ_API_KEY,
-    # RESILIENCE: Fallback chain of high-capacity Groq models
-    fallbacks=["groq/openai/gpt-oss-120b", "groq/llama-3.3-70b-versatile"]
+    fallbacks=["groq/llama-3.3-70b-versatile", "llama-3.1-8b-instant"]
 )
 
 archive_pipeline = SequentialAgent(
     name="execute_archive_pipeline",
-    sub_agents=[taxonomy_mapper, vision, synthesis_loop, publisher],
-    description="The Master Archiving Pipeline. Executes taxonomy injection, analysis, synthesis, and publication."
+    sub_agents=[taxonomy_mapper, synthesis_loop, publisher],
+    description="The Master Archiving Pipeline. Executes taxonomy injection, synthesis, and publication."
 )
 
 orchestrator = Agent(
@@ -119,30 +106,30 @@ orchestrator = Agent(
     model=orchestrator_model, 
     description="The root supervisor for the Igbo Archives Autonomous Ingestion System.",
     sub_agents=[archive_pipeline],
-    tools=[fetch_hf_record],
+    tools=[fetch_hf_record, AgentTool(vision)],
     before_agent_callback=initialize_session_state,
     instruction="""
 ROLE:
 You are the Chief Orchestrator of the Igbo Archives Autonomous Ingestion System.
 
 GOAL:
-Your primary responsibility is to fetch the raw data from Hugging Face for a given row index and then trigger the `execute_archive_pipeline`.
+Fetch raw data, command the vision analyst to describe the image completely blind (no context), verify the image matches the record, and trigger the pipeline, if it does not match or no response, donot trigger and state the reason.
 
 STRICT WORKFLOW:
-1. DATA FETCH: You MUST first call the `fetch_hf_record` tool using the Target Row Index ({current_index}).
-2. STATE UPDATE: Verify the tool did not return an error. The returned metadata and image path are automatically tracked in the system.
-3. PIPELINE TRIGGER: Call the `execute_archive_pipeline` agent to begin the archival process (Taxonomy -> Vision -> Synthesis -> Publisher).
+1. DATA FETCH: Call `fetch_hf_record` using the Target Row Index ({current_index}). 
+2. BLIND VISION ANALYSIS: Call the `vision_analyst` tool. You DO NOT need to give it any prompt or context, it is hardcoded to run blind. Wait for its report. (The report is automatically saved to the database).
+3. VALIDATION: Cross-reference the raw HF metadata with the vision analyst's unbiased report. 
+   - If the image completely mismatches the HF record or no response from the vision analyst (e.g., the record is for a wooden mask but the image shows modern clothing, or no image description, or no reply at all), HALT the process entirely. Output an error explaining the mismatch to the user.
+4. PIPELINE TRIGGER: If the image is valid, call the `execute_archive_pipeline` agent to begin the archival synthesis process.
 
 AVAILABLE DATA:
 - Target Dataset: {dataset_id}
 - Current Unarchived Index: {current_index}
 
 STRICT RULES:
-1. If the user explicitly provides a row index (e.g., "Process row 5"), use it. Otherwise, use the Current Unarchived Index ({current_index}).
-2. If the fetch tool returns an error, report it to the user and halt the pipeline.
-3. Keep your responses clinical, professional, and brief.
-4. Acknowledge missing data gracefully; do not invent details.
-    """.strip()
+1. If the user explicitly provides a row index (e.g., "Process row 5"), use it. Otherwise, use {current_index}.
+2. Keep your direct responses to the user clinical, professional, and brief.
+""".strip()
 )
 
 root_agent = orchestrator

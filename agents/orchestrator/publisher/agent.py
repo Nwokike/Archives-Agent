@@ -3,13 +3,12 @@ from google.adk.agents import Agent
 from google.adk.models.lite_llm import LiteLlm
 from google.adk.tools import ToolContext
 from ..mcp_client import call_mcp_tool
+from ..schema import ArchiveCreate  
 
-# --- Tool: Final Publication to Igbo Archives ---
-async def create_archives_submission(payload: dict, tool_context: ToolContext) -> dict:
+async def create_archives_submission(payload: ArchiveCreate, tool_context: ToolContext) -> dict:
     """Publishes the validated archival record to the central platform."""
     
-    # 1. PRE-FLIGHT CHECK: Ensure the image actually exists before publishing
-    # This prevents firing a broken payload if the Fetcher silently failed earlier.
+    # 1. PRE-FLIGHT CHECK
     image_path = tool_context.state.get("image_path", "")
     if not image_path or not os.path.exists(image_path):
         return {
@@ -17,35 +16,33 @@ async def create_archives_submission(payload: dict, tool_context: ToolContext) -
             "error": "FATAL ABORT: Valid image path not found. Pipeline failed in an earlier stage."
         }
 
-    # 2. THE FIREWALL: Extract absolute truth from system state, NOT the LLM
+    # 2. THE FIREWALL
     critic_status = str(tool_context.state.get("critic_status", ""))
     
     if "APPROVED" not in critic_status:
-        # Hard abort if the draft wasn't explicitly approved by the Critic
         return {
             "status": "FAILURE", 
             "error": f"FATAL ABORT: Critic did not approve this payload. Status: {critic_status}"
         }
 
     try:
-        # Prepare the body based on the REST API documentation
-        body = payload.copy()
+        body = payload.model_dump()
+        
         # We know image_path is valid now due to the pre-flight check
         body["image"] = f"file://{image_path}"
         
         # 3. Execute MCP Upload
         response = await call_mcp_tool("igbo-archives", "create_archives", {"body": body})
         
-        # 4. EXPLICIT PERSISTENCE: Save progress for tomorrow
-        # Increment index in shared memory
+        # 4. EXPLICIT PERSISTENCE
         tool_context.state["current_index"] = tool_context.state.get("current_index", 0) + 1
         
-        # Force the ADK DatabaseSessionService to commit immediately to Neon DB
+        # Force the ADK DatabaseSessionService to commit immediately
         if hasattr(tool_context, "session_service") and tool_context.session_service:
             try:
                 tool_context.session_service.save_session(tool_context.session)
             except AttributeError:
-                pass # Fallback for varying ADK version syntax
+                pass 
         
         return {"status": "SUCCESS", "message": "Archived successfully.", "id": response.get("id")}
         
@@ -58,7 +55,7 @@ GROQ_API_KEY = os.getenv("GROQ_API_KEY", "")
 publisher_model = LiteLlm(
     model="groq/meta-llama/llama-4-scout-17b-16e-instruct",
     api_key=GROQ_API_KEY,
-    fallbacks=["groq/openai/gpt-oss-120b", "groq/llama-3.3-70b-versatile"]
+    fallbacks=["groq/llama-3.3-70b-versatile", "groq/llama-3.1-8b-instant"]
 )
 
 # --- Agent E: The Publisher ---
@@ -78,10 +75,10 @@ AVAILABLE DATA:
 - The `archive` JSON payload drafted by the Synthesis Writer.
 
 STRICT RULES:
-1. ZERO MODIFICATION: You must pass the exact, unmodified JSON payload into your tool. Do not change a single character of the Writer's draft.
+1. ZERO MODIFICATION: You must pass the exact data from the Writer into your tool. 
 2. SINGLE ACTION: Your only job is to trigger the `create_archives_submission` tool.
 
 TOOL MANDATE:
-Trigger the `create_archives_submission` tool and pass the JSON payload. Do not attempt to pass an image_path or critic_status—the tool securely extracts those directly from the system state firewall.
+Trigger the `create_archives_submission` tool. Map the Writer's draft perfectly to the tool's parameters. Do not attempt to pass an image_path or critic_status—the tool securely extracts those directly from the system state firewall.
 """
 )

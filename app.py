@@ -57,8 +57,9 @@ from agents.synthesis.agent import writer, critic
 from agents.publisher.agent import publisher
 
 # 3. Protected Callbacks: Only apply to agents that don't already have one
-for ag in [data_fetcher, vision, writer, critic, publisher]:
-    ag.before_agent_callback = before_agent_callback
+for ag in [data_fetcher, taxonomy_mapper, vision, writer, critic, publisher]:
+    if getattr(ag, "before_agent_callback", None) is None:
+        ag.before_agent_callback = before_agent_callback
 
 # 4. Corrected Status Map Keys
 STATUS_MAP = {

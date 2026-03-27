@@ -7,9 +7,9 @@ from ..schema import ArchiveCreate
 GROQ_API_KEY = os.getenv("GROQ_API_KEY", "")
 
 writer_model = LiteLlm(
-    model="groq/moonshotai/kimi-k2-instruct-0905",
+    model="groq/moonshotai/kimi-k2-instruct",
     api_key=GROQ_API_KEY,
-    fallbacks=["groq/openai/gpt-oss-120b", "groq/llama-3.3-70b-versatile"]
+    fallbacks=["groq/llama-3.3-70b-versatile", "meta-llama/llama-4-scout-17b-16e-instruct"]
 )
 
 writer = Agent(
@@ -32,15 +32,15 @@ AVAILABLE DATA:
 
 STRICT RULES:
 1. NO EM-DASHES: You are strictly forbidden from using em-dashes (—). Use commas, colons, or parentheses.
-2. NO AI SPEAK: Completely ban words like 'research', 'pioneer', 'delve', 'tapestry', 'explore', 'comprehensive', 'vibrant', 'intricate'.
+2. NO AI SPEAK: Completely ban words like 'pioneer', 'delve', 'tapestry', 'explore', 'comprehensive', 'vibrant', 'intricate', 'dives'.
 3. HONEST NULL: If a field (like location or date) is not found in the source metadata or vision report, leave it as proper JSON `null`. Do not invent facts.
 4. AUTHOR RESOLUTION: Check the LIVE TAXONOMY DATA. If the author exists in our database, you MUST output their exact case-sensitive 'name' from the taxonomy. If they do not exist, format the name based on the source metadata.
 5. TONE: Use clinical, objective, archival language.
 
 GOLD STANDARD EXAMPLES:
-Study these examples of perfect archival submissions. Match this exact tone, length, and formatting style:
+Study these examples of perfect archival submissions:
 
-Title: Igbo Elder from Awka on Oche Mpata
+Title: Young Igbo Girl Painted with Uli
 Description: This black-and-white photograph from the 1940s by Sylvia Leith-Ross shows a young Igbo girl adorned with traditional Uli body art patterns. She wears a headpiece with feathers and decorative elements, with her back turned to emphasize the designs. Blurred figures in the background suggest a public event. The image highlights the cultural significance of Uli in Igbo identity and aesthetics, as documented in Leith-Ross's book African Conversation Piece (1944).
 Caption: A young Igbo girl painted with Uli. From Sylvia Leith-Ross, African Conversation Piece, London/New York: Hutchinson, 1944.
 Alt Text: Young Igbo Woman Painted with Uli on her back.
@@ -61,7 +61,7 @@ Additional style references:
 critic_model = LiteLlm(
     model="groq/llama-3.3-70b-versatile",
     api_key=GROQ_API_KEY,
-    fallbacks=["groq/openai/gpt-oss-120b", "groq/qwen/qwen3-32b"]
+    fallbacks=["groq/moonshotai/kimi-k2-instruct", "groq/llama-3.1-8b-instant"]
 )
 
 critic = Agent(
@@ -85,10 +85,9 @@ STRICT RULES (REJECT THE DRAFT IF ANY OF THESE FAIL):
 2. REJECT if the draft contains AI-isms ('tapestry', 'vibrant', 'intricate', 'delve', etc.).
 3. REJECT if the draft contains facts/locations/dates not explicitly present in the massive raw metadata payload or visual report (Hallucination).
 4. REJECT if the author exists in the LIVE TAXONOMY DATA but the Writer failed to use the exact case-sensitive spelling.
-5. REJECT if the tone does not match the clinical, objective tone of the Gold Standard Examples provided to the Writer.
 
 OUTPUT MANDATE:
-- If the draft is 100% flawless, you MUST reply with exactly one word: APPROVED.
+- If the draft is flawless, you MUST reply with exactly one word: APPROVED.
 - If it fails, list the exact REJECTION reasons clearly so the Writer can fix them in the next iteration.
 """
 )
@@ -99,11 +98,11 @@ class CriticEscalationChecker(BaseAgent):
     
     async def _run_async_impl(self, context):
         # Read the status from the shared session state
-        status = context.state.get("critic_status", "")
+        status = context.session.state.get("critic_status", "")
         
         if "APPROVED" in status.upper():
             # Yielding an event with escalate=True acts as the loop breaker
-            yield Event(actions=EventActions(escalate=True))
+            yield Event(author=self.name, actions=EventActions(escalate=True))
         else:
             # Otherwise, do nothing and let the LoopAgent restart the cycle
             yield Event(content="Draft not approved. Continuing refinement loop.")
