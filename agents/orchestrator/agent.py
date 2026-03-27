@@ -92,7 +92,7 @@ def initialize_session_state(callback_context: Context):
 orchestrator_model = LiteLlm(
     model="groq/moonshotai/kimi-k2-instruct",
     api_key=GROQ_API_KEY,
-    fallbacks=["groq/llama-3.3-70b-versatile", "llama-3.1-8b-instant"]
+    fallbacks=["groq/llama-3.3-70b-versatile", "meta-llama/llama-4-scout-17b-16e-instruct"]
 )
 
 archive_pipeline = SequentialAgent(

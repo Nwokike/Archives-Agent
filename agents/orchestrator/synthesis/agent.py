@@ -1,17 +1,27 @@
 import os
+from google.genai import types
 from google.adk.agents import Agent, LoopAgent, BaseAgent
 from google.adk.models.lite_llm import LiteLlm
 from google.adk.events import Event, EventActions
 from ..schema import ArchiveCreate
 
+# --- Configuration ---
 GROQ_API_KEY = os.getenv("GROQ_API_KEY", "")
 
+# --- Models ---
 writer_model = LiteLlm(
     model="groq/moonshotai/kimi-k2-instruct",
     api_key=GROQ_API_KEY,
     fallbacks=["groq/llama-3.3-70b-versatile", "meta-llama/llama-4-scout-17b-16e-instruct"]
 )
 
+critic_model = LiteLlm(
+    model="groq/llama-3.3-70b-versatile",
+    api_key=GROQ_API_KEY,
+    fallbacks=["groq/moonshotai/kimi-k2-instruct", "groq/llama-3.1-8b-instant"]
+)
+
+# --- Agent C: The Writer ---
 writer = Agent(
     name="synthesis_writer",
     model=writer_model,
@@ -58,12 +68,7 @@ Additional style references:
 """
 )
 
-critic_model = LiteLlm(
-    model="groq/llama-3.3-70b-versatile",
-    api_key=GROQ_API_KEY,
-    fallbacks=["groq/moonshotai/kimi-k2-instruct", "groq/llama-3.1-8b-instant"]
-)
-
+# --- Agent D: The Critic ---
 critic = Agent(
     name="historical_validator",
     model=critic_model,
@@ -92,6 +97,7 @@ OUTPUT MANDATE:
 """
 )
 
+# --- The Deterministic Loop Breaker ---
 class CriticEscalationChecker(BaseAgent):
     """A deterministic agent that checks the critic's status and terminates the loop."""
     name: str = "escalation_checker"
@@ -102,13 +108,23 @@ class CriticEscalationChecker(BaseAgent):
         
         if "APPROVED" in status.upper():
             # Yielding an event with escalate=True acts as the loop breaker
-            yield Event(author=self.name, actions=EventActions(escalate=True))
+            yield Event(
+                author=self.name, 
+                actions=EventActions(escalate=True)
+            )
         else:
-            # Otherwise, do nothing and let the LoopAgent restart the cycle
-            yield Event(content="Draft not approved. Continuing refinement loop.")
+            # Otherwise, yield a properly formatted Content object and let the LoopAgent restart
+            yield Event(
+                author=self.name,
+                content=types.Content(
+                    role="system",
+                    parts=[types.Part.from_text("Draft not approved. Continuing refinement loop.")]
+                )
+            )
 
 escalation_checker = CriticEscalationChecker()
 
+# --- The Master Loop Agent ---
 synthesis_loop = LoopAgent(
     name="synthesis_loop",
     max_iterations=3,
