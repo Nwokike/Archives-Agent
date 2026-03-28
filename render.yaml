@@ -1,0 +1,19 @@
+services:
+  - type: web
+    name: archives-agent
+    env: docker
+    plan: free
+    healthCheckPath: /
+    envVars:
+      - key: PORT
+        value: "8080"
+      - key: TELEGRAM_BOT_TOKEN
+        sync: false
+      - key: TELEGRAM_WEBHOOK_URL
+        sync: false
+      - key: NEON_DATABASE_URL
+        sync: false
+      - key: GROQ_API_KEY
+        sync: false
+      - key: TARGET_DATASET
+        value: "nwokikeonyeka/maa-cambridge-south-eastern-nigeria"
