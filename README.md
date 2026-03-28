@@ -1,4 +1,4 @@
-# 🇳🇬 Igbo Archives Autonomous Ingestion System
+# Igbo Archives Autonomous Ingestion System
 
 [![AI-Powered](https://img.shields.io/badge/AI-Autonomous%20Agents-blueviolet)](https://google.github.io/google-adk/)
 [![Powered by Groq](https://img.shields.io/badge/Powered%20by-Groq%20%7C%20Llama--4-f37626)](https://groq.com/)
