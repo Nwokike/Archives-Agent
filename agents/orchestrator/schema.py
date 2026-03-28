@@ -23,8 +23,8 @@ class ArchiveCreate(BaseModel):
     Descriptions here act as secondary constraints for the LLM.
     """
     title: str = Field(description="Formal archival title. MUST NOT contain AI-isms or em-dashes.")
-    archive_type: str = "image"
-    author_name: Optional[str] = Field(description="Exact case-sensitive 'name' from the LIVE TAXONOMY DATA. If not in DB, use source name. Do not invent authors.")
+    archive_type: str = Field(description="Strictly output 'image' here.")
+    original_author: Optional[str] = Field(description="Exact case-sensitive 'name' from the LIVE TAXONOMY DATA. If not in DB, use source name. Do not invent authors.")
     description: Optional[str] = Field(description="Meticulous cultural report. NO em-dashes, NO generic AI words. Facts strictly from source.")
     caption: Optional[str] = Field(description="Concise caption for the photograph.")
     alt_text: Optional[str] = Field(description="Accessibility text (e.g., 'Young Igbo Woman Painted with Uli').")

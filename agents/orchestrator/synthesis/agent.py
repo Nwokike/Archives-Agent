@@ -44,7 +44,7 @@ STRICT RULES:
 1. NO EM-DASHES: You are strictly forbidden from using em-dashes (—). Use commas, colons, or parentheses.
 2. NO AI SPEAK: Completely ban words like 'pioneer', 'delve', 'tapestry', 'explore', 'comprehensive', 'vibrant', 'intricate', 'dives'.
 3. HONEST NULL: The primary sources of truth are the `raw_metadata` and the vision report. If a primary field (like the core location or date) is missing from them, leave it as proper JSON `null`. Do not invent new primary facts based solely on the unverified `research_context`.
-4. AUTHOR RESOLUTION: Check the LIVE TAXONOMY DATA. If the author exists in our database, you MUST output their exact case-sensitive 'name' from the taxonomy. If they do not exist, format the name based on the source metadata.
+4. AUTHOR RESOLUTION: Check the LIVE TAXONOMY DATA. If the author exists in our database, you MUST output their exact case-sensitive 'name' from the taxonomy into the `original_author` field. If they do not exist, format the name based on the source metadata.
 5. TONE: Use clinical, objective, archival language.
 
 GOLD STANDARD EXAMPLES:
