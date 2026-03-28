@@ -3,6 +3,7 @@ import os
 import asyncio
 import time
 import tempfile
+import json
 from datetime import datetime
 from dotenv import load_dotenv
 
@@ -12,16 +13,13 @@ os.environ["HF_HUB_CACHE"] = HF_CACHE_DIR
 
 if sys.platform == "win32":
     asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
+    
 from fastapi import FastAPI, Request
 from google.adk.runners import Runner
 from google.adk.sessions import DatabaseSessionService
-from agents.orchestrator.agent import orchestrator
-from agents.schema import get_initial_state
 from telegram import Update, Bot
 from telegram.ext import ApplicationBuilder, MessageHandler, filters, ContextTypes
-
 from google.genai import types
-from google.adk.events.event import Event
 
 load_dotenv()
 
@@ -35,6 +33,21 @@ if NEON_URL.startswith("postgresql://"):
 
 session_service = DatabaseSessionService(db_url=NEON_URL)
 
+# --- Agent Imports ---
+from agents.orchestrator.agent import orchestrator
+from agents.orchestrator.fetcher.agent import data_fetcher
+from agents.orchestrator.taxonomy.agent import taxonomy_mapper
+from agents.orchestrator.vision.agent import execute_vision_analysis 
+from agents.orchestrator.synthesis.agent import writer, critic
+from agents.orchestrator.publisher.agent import publisher
+
+# Safely import the new researcher agent
+try:
+    from agents.orchestrator.research.agent import researcher
+    has_researcher = True
+except ImportError:
+    has_researcher = False
+
 runner = Runner(
     app_name="igbo-archives-agent-hq",
     agent=orchestrator,
@@ -44,89 +57,45 @@ runner = Runner(
 STATIC_SESSION_ID = "global_archive_tracker"
 DATASET_ID = "nwokikeonyeka/maa-cambridge-south-eastern-nigeria"
 
-# --- ADK Event Bubbling Fix (UI Callback Scope Bug) ---
+# --- ADK Event Bubbling Fix ---
 async def before_agent_callback(ctx):
     ctx.state["active_agent"] = ctx.agent_name
-    # Modifying state forces ADK to bubble an Event to the runner root!
     return None
 
-# 2. Fixed Imports
-from agents.fetcher.agent import data_fetcher, taxonomy_mapper
-from agents.vision.agent import vision
-from agents.synthesis.agent import writer, critic
-from agents.publisher.agent import publisher
+# Protected Callbacks: Dynamically includes researcher if it exists
+agent_list = [data_fetcher, taxonomy_mapper, writer, critic, publisher]
+if has_researcher:
+    agent_list.append(researcher)
 
-# 3. Protected Callbacks: Only apply to agents that don't already have one
-for ag in [data_fetcher, taxonomy_mapper, vision, writer, critic, publisher]:
+for ag in agent_list:
     if getattr(ag, "before_agent_callback", None) is None:
         ag.before_agent_callback = before_agent_callback
 
-# 4. Corrected Status Map Keys
-STATUS_MAP = {
-    "data_fetcher": ("⚙️ Fetching Metadata", "✅ Data Fetched"),
-    "taxonomy_mapper": ("🗺️ Mapping Taxonomy", "✅ Taxonomy Mapped"),
-    "vision_analyst": ("👁️ Visual Analysis", "🖼️ Visual Report Done"),
-    "synthesis_writer": ("✍️ Drafting Record", "📄 Draft Written"),
-    "historical_validator": ("⚖️ Validating Draft", "⚖️ Record Approved"),
-    "publisher": ("🚀 Final Publishing", "✨ Archive Published!")
-}
 
-async def update_telegram_status(chat_id: int, msg_id: int, state: dict, bot: Bot):
-    last_ui_update = state.get("last_ui_update", 0)
-    current_time = time.time()
-    if current_time - last_ui_update < 2: return
-
-    lines = []
-    active = state.get("active_agent", "")
-    completed = state.get("completed_agents", [])
-    
-    for agent, (in_prog, done) in STATUS_MAP.items():
-        if agent in completed: lines.append(f"[✅] {done}")
-        elif agent == active: lines.append(f"[..] {in_prog}...")
-        else: lines.append(f"[  ] {in_prog}")
-            
-    try:
-        await bot.edit_message_text(
-            chat_id=chat_id,
-            message_id=msg_id,
-            text=f"⚙️ **System: {state.get('dataset_id', 'HF-Archive')}**\nStatus: Processing Row {state.get('current_index', 0)}\n\n" + "\n".join(lines),
-            parse_mode="Markdown"
-        )
-        state["last_ui_update"] = current_time
-    except: pass
-
+# --- Main Pipeline Execution ---
 async def run_pipeline(update: Update, bot: Bot):
     chat_id = update.effective_chat.id
     status_msg = await bot.send_message(chat_id, "📡 *Archives Hive Activated*\n_Connecting to agents..._", parse_mode="Markdown")
 
-    # For final reporting/cleanup
     final_payload = {}
     image_to_cleanup = None
     full_output = ""
     
-    # Dynamic Streaming State
-    hive_steps = [] # List of dicts: {"agent": str, "status": "working"|"done", "detail": str}
+    hive_steps = [] 
     last_update_time = 0
     
-    # --- Fix 'role' error by wrapping message ---
-    msg_content = types.Content(role="user", parts=[types.Part(text=update.message.text)])
-    
-    print(f"DEBUG: Starting Runner for {DATASET_ID} with message: {update.message.text}")
+    msg_content = types.Content(role="user", parts=[types.Part.from_text(text=update.message.text)])
     
     try:
-        from google.adk.utils._debug_output import print_event
         async for event in runner.run_async(user_id=DATASET_ID, session_id=STATIC_SESSION_ID, new_message=msg_content):
-            # Console logs (the "Everything on Logs" part)
-            print_event(event)
-
             author = event.author
             if author and author not in ["user", "system"]:
+                
                 # 1. Update/Add Hive Step
                 current_step = None
                 if hive_steps and hive_steps[-1]["agent"] == author:
                     current_step = hive_steps[-1]
                 else:
-                    # New agent started. Mark previous as done.
                     if hive_steps: hive_steps[-1]["status"] = "done"
                     current_step = {"agent": author, "status": "working", "detail": "Starting..."}
                     hive_steps.append(current_step)
@@ -134,12 +103,12 @@ async def run_pipeline(update: Update, bot: Bot):
                 # 2. Extract Text Content Safely
                 event_text = ""
                 if event.content and event.content.parts:
-                    event_text = "".join([p.text for p in event.content.parts if p.text]).strip()
+                    event_text = "".join([p.text for p in event.content.parts if hasattr(p, 'text') and p.text]).strip()
 
                 func_calls = event.get_function_calls()
                 func_responses = event.get_function_responses()
                 
-                # 3. Update Step Details (Log-style)
+                # 3. Update Step Details
                 if func_calls:
                     tools = ", ".join([fc.name for fc in func_calls])
                     current_step["detail"] = f"🛠️ Calling: `{tools}`"
@@ -160,7 +129,7 @@ async def run_pipeline(update: Update, bot: Bot):
                 now = time.time()
                 if now - last_update_time >= 1.2:
                     display_lines = ["📡 *Archives Hive Activity*", ""]
-                    for step in hive_steps[-5:]: # Show last 5 steps for focus
+                    for step in hive_steps[-5:]: 
                         icon = "⚡" if step["status"] == "working" else "🔵"
                         name = step["agent"].replace("_", " ").upper()
                         display_lines.append(f"{icon} *{name}*\n└ {step['detail']}")
@@ -175,45 +144,44 @@ async def run_pipeline(update: Update, bot: Bot):
                         last_update_time = now
                     except: pass
 
-            # Persistence tracking
-            current_session = await session_service.get_session(
-                app_name="igbo-archives-agent-hq", 
-                user_id=DATASET_ID, 
-                session_id=STATIC_SESSION_ID
-            )
-            image_to_cleanup = current_session.state.get("image_path")
-            final_payload = current_session.state.get("draft_payload", {})
+            # Persistence tracking (Synchronous retrieval fix)
+            try:
+                current_session = session_service.get_session(
+                    app_name="igbo-archives-agent-hq", 
+                    user_id=DATASET_ID, 
+                    session_id=STATIC_SESSION_ID
+                )
+                if current_session:
+                    image_to_cleanup = current_session.state.get("image_path")
+                    final_payload = current_session.state.get("archive", {}) 
+            except Exception as e:
+                pass
 
     except Exception as e:
         await bot.send_message(chat_id, f"⚠️ **Hive Error:** {str(e)}")
     finally:
-        # Final cleanup: Replace thinking with result
         try: await bot.delete_message(chat_id, status_msg.message_id)
         except: pass
         
         if final_payload:
             title = final_payload.get("title", "Untitled")
-            category = final_payload.get("category_name", "General")
             slug = final_payload.get("slug", "pending")
             link = f"https://igboarchives.ng/archives/{slug}/"
             
             await bot.send_message(
                 chat_id=chat_id,
-                text=f"✅ **Archiving Complete**\n\n**Title**: {title}\n**Category**: {category}\n\n🔗 [View on Platform]({link})",
+                text=f"✅ **Archiving Complete**\n\n**Title**: {title}\n🔗 [View on Platform]({link})",
                 parse_mode="Markdown"
             )
         elif full_output:
-            # If orchestrator sent a direct chat response
             await bot.send_message(chat_id, full_output)
         else:
             await bot.send_message(chat_id, "🏁 **Pipeline Finished** (No records processed)")
 
-        # ADK persistent memory is now managed natively inside the Publisher agent tools.
-        # This prevents double-incrementing when multiple agents touch the state.
-
         if image_to_cleanup and os.path.exists(image_to_cleanup):
             try: os.remove(image_to_cleanup)
             except: pass
+
 
 # --- Webhook Mode (Cloud Run) ---
 app = FastAPI()
@@ -222,11 +190,10 @@ tg_bot = Bot(token=bot_token) if bot_token else None
 
 @app.post("/webhook")
 async def telegram_webhook(request: Request):
-    import json
     payload = await request.json()
     
     if os.getenv("K_SERVICE"):
-        # Cloud Run: push to Cloud Tasks
+        # Cloud Run: push to Cloud Tasks (RESTORED)
         from google.cloud import tasks_v2
         client = tasks_v2.CloudTasksClient()
         project = os.getenv("GOOGLE_CLOUD_PROJECT", "project-id")
@@ -254,10 +221,12 @@ async def telegram_webhook(request: Request):
         update = Update.de_json(payload, tg_bot)
         if update.message and update.message.text:
             asyncio.create_task(run_pipeline(update, tg_bot))
+            
     return {"status": "ok"}
 
 @app.post("/worker")
 async def telegram_worker(request: Request):
+    """The Cloud Tasks execution endpoint (RESTORED)"""
     payload = await request.json()
     update = Update.de_json(payload, tg_bot)
     if update.message and update.message.text:
@@ -274,17 +243,14 @@ async def handle_polling(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 if __name__ == "__main__":
     if os.getenv("K_SERVICE") or os.getenv("TELEGRAM_WEBHOOK_URL"):
-        # PRODUCTION MODE
         import uvicorn
         port = int(os.environ.get("PORT", 8080))
         print(f"Starting server on port {port} (Webhook Mode)")
         uvicorn.run(app, host="0.0.0.0", port=port)
     else:
-        # LOCAL MODE
         if bot_token:
             from telegram.request import HTTPXRequest
             print("Starting Telegram Bot (Polling Mode) for local dev...")
-            # Increased timeouts for spotty network (e.g. Enugu, Nigeria)
             request = HTTPXRequest(connect_timeout=30, read_timeout=30)
             tg_app = ApplicationBuilder().token(bot_token).request(request).build()
             tg_app.add_handler(MessageHandler(filters.TEXT & (~filters.COMMAND), handle_polling))

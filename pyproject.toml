@@ -6,6 +6,7 @@ authors = [{ name = "Onyeka Nwokike", email = "nwokikeonyeka@gmail.com" }]
 readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
+    "duckduckgo-search>=8.1.1",
     "fastapi>=0.135.2",
     "google-adk>=1.28.0",
     "google-cloud-tasks>=2.22.0",

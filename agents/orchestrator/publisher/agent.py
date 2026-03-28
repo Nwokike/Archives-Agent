@@ -29,10 +29,19 @@ async def create_archives_submission(payload: ArchiveCreate, tool_context: ToolC
         body = payload.model_dump()
         
         # We know image_path is valid now due to the pre-flight check
+        # Our updated mcp_client.py intercepts the file:// protocol and uses multipart upload
         body["image"] = f"file://{image_path}"
         
         # 3. Execute MCP Upload
         response = await call_mcp_tool("igbo-archives", "create_archives", {"body": body})
+        
+        # --- Catch Silent MCP Errors ---
+        response_str = str(response)
+        if "Error executing tool" in response_str or "ErrorDetail" in response_str or not response.get("id"):
+            return {
+                "status": "FAILURE", 
+                "error": f"MCP API Error: The remote server rejected the payload. Details: {response.get('raw_response', {}).get('raw_text', response_str)}"
+            }
         
         # 4. EXPLICIT PERSISTENCE
         tool_context.state["current_index"] = tool_context.state.get("current_index", 0) + 1
@@ -76,9 +85,11 @@ AVAILABLE DATA:
 
 STRICT RULES:
 1. ZERO MODIFICATION: You must pass the exact data from the Writer into your tool. 
-2. SINGLE ACTION: Your only job is to trigger the `create_archives_submission` tool.
+2. EXACTLY ONE ACTION: You are strictly forbidden from calling the `create_archives_submission` tool more than once per execution.
+3. HANDLING SUCCESS: If the tool returns "SUCCESS", immediately output a brief text confirmation of the success and STOP. Do not process the next index.
+4. HANDLING FAILURE: If the tool returns "FAILURE" (e.g., Critic did not approve), DO NOT attempt to retry or fix the payload. Immediately output the exact error message as text and STOP.
 
 TOOL MANDATE:
-Trigger the `create_archives_submission` tool. Map the Writer's draft perfectly to the tool's parameters. Do not attempt to pass an image_path or critic_status—the tool securely extracts those directly from the system state firewall.
+Trigger the `create_archives_submission` tool. Map the Writer's draft perfectly to the tool's parameters. Do not attempt to pass an image_path or critic_status. Once the tool returns a response, output your final text and cease operations.
 """
 )

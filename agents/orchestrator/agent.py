@@ -11,6 +11,7 @@ from google.adk.models.lite_llm import LiteLlm
 from google.adk.tools.agent_tool import AgentTool
 
 # --- Local Sub-Agent Imports ---
+from .research.agent import researcher
 from .taxonomy.agent import taxonomy_mapper
 from .vision.agent import execute_vision_analysis
 from .synthesis.agent import synthesis_loop
@@ -92,12 +93,12 @@ def initialize_session_state(callback_context: Context):
 orchestrator_model = LiteLlm(
     model="groq/moonshotai/kimi-k2-instruct",
     api_key=GROQ_API_KEY,
-    fallbacks=["groq/llama-3.3-70b-versatile", "meta-llama/llama-4-scout-17b-16e-instruct"]
+    fallbacks=["groq/llama-3.3-70b-versatile", "groq/meta-llama/llama-4-scout-17b-16e-instruct"]
 )
 
 archive_pipeline = SequentialAgent(
     name="execute_archive_pipeline",
-    sub_agents=[taxonomy_mapper, synthesis_loop, publisher],
+    sub_agents=[researcher, taxonomy_mapper, synthesis_loop, publisher],
     description="The Master Archiving Pipeline. Executes taxonomy injection, synthesis, and publication."
 )
 

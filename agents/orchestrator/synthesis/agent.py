@@ -12,7 +12,7 @@ GROQ_API_KEY = os.getenv("GROQ_API_KEY", "")
 writer_model = LiteLlm(
     model="groq/moonshotai/kimi-k2-instruct",
     api_key=GROQ_API_KEY,
-    fallbacks=["groq/llama-3.3-70b-versatile", "meta-llama/llama-4-scout-17b-16e-instruct"]
+    fallbacks=["groq/llama-3.3-70b-versatile", "groq/meta-llama/llama-4-scout-17b-16e-instruct"]
 )
 
 critic_model = LiteLlm(
@@ -21,7 +21,6 @@ critic_model = LiteLlm(
     fallbacks=["groq/moonshotai/kimi-k2-instruct", "groq/llama-3.1-8b-instant"]
 )
 
-# --- Agent C: The Writer ---
 writer = Agent(
     name="synthesis_writer",
     model=writer_model,
@@ -38,12 +37,13 @@ Merge massive raw historical metadata, the visual analyst's report, and live tax
 AVAILABLE DATA:
 - `raw_metadata` (Unedited historical context from the data fetcher)
 - The visual report (from the vision analyst)
+- `research_context` (UNVERIFIED internet search results. Use this ONLY as supplementary context or an 'advantage' to help you better understand the raw metadata. It is NOT a source of truth.)
 - LIVE TAXONOMY DATA (Authors and Categories from the database)
 
 STRICT RULES:
 1. NO EM-DASHES: You are strictly forbidden from using em-dashes (—). Use commas, colons, or parentheses.
 2. NO AI SPEAK: Completely ban words like 'pioneer', 'delve', 'tapestry', 'explore', 'comprehensive', 'vibrant', 'intricate', 'dives'.
-3. HONEST NULL: If a field (like location or date) is not found in the source metadata or vision report, leave it as proper JSON `null`. Do not invent facts.
+3. HONEST NULL: The primary sources of truth are the `raw_metadata` and the vision report. If a primary field (like the core location or date) is missing from them, leave it as proper JSON `null`. Do not invent new primary facts based solely on the unverified `research_context`.
 4. AUTHOR RESOLUTION: Check the LIVE TAXONOMY DATA. If the author exists in our database, you MUST output their exact case-sensitive 'name' from the taxonomy. If they do not exist, format the name based on the source metadata.
 5. TONE: Use clinical, objective, archival language.
 
@@ -83,12 +83,13 @@ Review the Writer's drafted JSON payload against strict formatting and historica
 
 AVAILABLE DATA:
 - The JSON draft from the Synthesis Writer.
-- The original source metadata and taxonomy data.
+- The original source metadata, visual report, taxonomy data, and `research_context`.
 
 STRICT RULES (REJECT THE DRAFT IF ANY OF THESE FAIL):
 1. REJECT if the draft contains em-dashes (—).
 2. REJECT if the draft contains AI-isms ('tapestry', 'vibrant', 'intricate', 'delve', etc.).
-3. REJECT if the draft contains facts/locations/dates not explicitly present in the massive raw metadata payload or visual report (Hallucination).
+3. REJECT if the draft invents primary facts (Hallucination). The core facts MUST come from the raw metadata or visual report.
+   - EXCEPTION: You MAY ALLOW supplementary contextual hints ONLY IF that context was explicitly provided in the `research_context`. But the research context must not be used as a primary source of truth if it contradicts the raw metadata.
 4. REJECT if the author exists in the LIVE TAXONOMY DATA but the Writer failed to use the exact case-sensitive spelling.
 
 OUTPUT MANDATE:
@@ -118,7 +119,8 @@ class CriticEscalationChecker(BaseAgent):
                 author=self.name,
                 content=types.Content(
                     role="system",
-                    parts=[types.Part.from_text("Draft not approved. Continuing refinement loop.")]
+                    # FIX APPLIED HERE: Added 'text=' keyword argument
+                    parts=[types.Part.from_text(text="Draft not approved. Continuing refinement loop.")]
                 )
             )
 
