@@ -3,7 +3,6 @@ import os
 import asyncio
 import time
 import tempfile
-import json
 from datetime import datetime
 from dotenv import load_dotenv
 
@@ -34,19 +33,11 @@ if NEON_URL.startswith("postgresql://"):
 session_service = DatabaseSessionService(db_url=NEON_URL)
 
 # --- Agent Imports ---
-from agents.orchestrator.agent import orchestrator
-from agents.orchestrator.fetcher.agent import data_fetcher
+from agents.orchestrator.agent import orchestrator, archive_pipeline
+from agents.orchestrator.research.agent import researcher
 from agents.orchestrator.taxonomy.agent import taxonomy_mapper
-from agents.orchestrator.vision.agent import execute_vision_analysis 
-from agents.orchestrator.synthesis.agent import writer, critic
+from agents.orchestrator.synthesis.agent import synthesis_loop
 from agents.orchestrator.publisher.agent import publisher
-
-# Safely import the new researcher agent
-try:
-    from agents.orchestrator.research.agent import researcher
-    has_researcher = True
-except ImportError:
-    has_researcher = False
 
 runner = Runner(
     app_name="igbo-archives-agent-hq",
@@ -62,10 +53,15 @@ async def before_agent_callback(ctx):
     ctx.state["active_agent"] = ctx.agent_name
     return None
 
-# Protected Callbacks: Dynamically includes researcher if it exists
-agent_list = [data_fetcher, taxonomy_mapper, writer, critic, publisher]
-if has_researcher:
-    agent_list.append(researcher)
+# Protected Callbacks (No more try/except nonsense)
+agent_list = [
+    orchestrator, 
+    archive_pipeline, 
+    researcher, 
+    taxonomy_mapper, 
+    synthesis_loop, 
+    publisher
+]
 
 for ag in agent_list:
     if getattr(ag, "before_agent_callback", None) is None:
@@ -136,7 +132,7 @@ async def run_pipeline(update: Update, bot: Bot):
                         last_update_time = now
                     except: pass
 
-            # Persistence tracking (Synchronous retrieval fix)
+            # Persistence tracking
             try:
                 current_session = session_service.get_session(
                     app_name="igbo-archives-agent-hq", 
@@ -175,69 +171,36 @@ async def run_pipeline(update: Update, bot: Bot):
             except: pass
 
 
-# --- Webhook Mode (Cloud Run) ---
+# --- Webhook Mode (Render Web Service) ---
 app = FastAPI()
 bot_token = os.getenv("TELEGRAM_BOT_TOKEN")
 tg_bot = Bot(token=bot_token) if bot_token else None
 
 @app.post("/webhook")
 async def telegram_webhook(request: Request):
+    """Receives Telegram update and processes in background."""
     payload = await request.json()
+    update = Update.de_json(payload, tg_bot)
     
-    if os.getenv("K_SERVICE"):
-        # Cloud Run: push to Cloud Tasks (RESTORED)
-        from google.cloud import tasks_v2
-        client = tasks_v2.CloudTasksClient()
-        project = os.getenv("GOOGLE_CLOUD_PROJECT", "project-id")
-        location = os.getenv("GCP_LOCATION", "us-central1")
-        queue = os.getenv("GCP_QUEUE", "archives-queue")
-        url = os.getenv("WORKER_URL", "https://your-cloud-run-url/worker")
-        
-        parent = client.queue_path(project, location, queue)
-        task = {
-            "http_request": {
-                "http_method": tasks_v2.HttpMethod.POST,
-                "url": url,
-                "headers": {"Content-type": "application/json"},
-                "body": json.dumps(payload).encode()
-            }
-        }
-        try:
-            client.create_task(request={"parent": parent, "task": task})
-        except Exception as e:
-            print(f"Error publishing to Cloud Tasks: {e}")
-            update = Update.de_json(payload, tg_bot)
-            if update.message and update.message.text:
-                asyncio.create_task(run_pipeline(update, tg_bot))
-    else:
-        update = Update.de_json(payload, tg_bot)
-        if update.message and update.message.text:
-            asyncio.create_task(run_pipeline(update, tg_bot))
+    if update.message and update.message.text:
+        # Fire and forget: Runs the AI pipeline in the background so we can return 200 OK immediately
+        asyncio.create_task(run_pipeline(update, tg_bot))
             
     return {"status": "ok"}
 
-@app.post("/worker")
-async def telegram_worker(request: Request):
-    """The Cloud Tasks execution endpoint (RESTORED)"""
-    payload = await request.json()
-    update = Update.de_json(payload, tg_bot)
-    if update.message and update.message.text:
-        await run_pipeline(update, tg_bot)
-    return {"status": "completed"}
-
 @app.get("/")
 def health():
-    return {"status": "Archiving Hive is ACTIVE", "mode": "Webhook"}
+    return {"status": "Archiving Hive is ACTIVE on Render", "mode": "Webhook"}
 
 # --- Polling Mode (Local Dev) ---
 async def handle_polling(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await run_pipeline(update, context.bot)
 
 if __name__ == "__main__":
-    if os.getenv("K_SERVICE") or os.getenv("TELEGRAM_WEBHOOK_URL"):
+    if os.getenv("RENDER") or os.getenv("TELEGRAM_WEBHOOK_URL"):
         import uvicorn
         port = int(os.environ.get("PORT", 8080))
-        print(f"Starting server on port {port} (Webhook Mode)")
+        print(f"Starting server on port {port} (Render Webhook Mode)")
         uvicorn.run(app, host="0.0.0.0", port=port)
     else:
         if bot_token:
