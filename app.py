@@ -51,16 +51,22 @@ async def run_pipeline(update: Update, bot: Bot):
     chat_id = update.effective_chat.id
     msg_content = types.Content(role="user", parts=[types.Part.from_text(text=update.message.text)])
     
-    # 🚨 FIX: Explicitly create the session in the DB if it doesn't exist
+    # Explicitly AWAIT the session check and creation
     try:
-        session_service.get_session(
+        current_session = await session_service.get_session(
             app_name="igbo-archives-agent-hq", 
             user_id=DATASET_ID, 
             session_id=STATIC_SESSION_ID
         )
+        if not current_session:
+            await session_service.create_session(
+                app_name="igbo-archives-agent-hq", 
+                user_id=DATASET_ID, 
+                session_id=STATIC_SESSION_ID
+            )
     except Exception:
-        # If it throws an error (Session Not Found), we create it so the Runner doesn't crash
-        session_service.create_session(
+        # Fallback if the database throws a hard error instead of returning None
+        await session_service.create_session(
             app_name="igbo-archives-agent-hq", 
             user_id=DATASET_ID, 
             session_id=STATIC_SESSION_ID
@@ -81,22 +87,23 @@ async def run_pipeline(update: Update, bot: Bot):
 
                 # If the agent actually spoke, send it directly to Telegram
                 if event_text:
+                    # 🚨 FIX: Markdown formatting completely removed to prevent Telegram crashes
                     await bot.send_message(
                         chat_id=chat_id, 
-                        text=f"**{author.upper()}**:\n{event_text}", 
-                        parse_mode="Markdown"
+                        text=f"{author.upper()}:\n{event_text}"
                     )
 
-        # Cleanup image if it exists in state after the run
+        # AWAIT the get_session call for cleanup
         try:
-            current_session = session_service.get_session(
+            current_session = await session_service.get_session(
                 app_name="igbo-archives-agent-hq", 
                 user_id=DATASET_ID, 
                 session_id=STATIC_SESSION_ID
             )
-            image_to_cleanup = current_session.state.get("image_path")
-            if image_to_cleanup and os.path.exists(image_to_cleanup):
-                os.remove(image_to_cleanup)
+            if current_session:
+                image_to_cleanup = current_session.state.get("image_path")
+                if image_to_cleanup and os.path.exists(image_to_cleanup):
+                    os.remove(image_to_cleanup)
         except Exception:
             pass
 
