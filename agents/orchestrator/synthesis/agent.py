@@ -88,8 +88,8 @@ AVAILABLE DATA:
 STRICT RULES (REJECT THE DRAFT IF ANY OF THESE FAIL):
 1. REJECT if the draft contains em-dashes (—).
 2. REJECT if the draft contains AI-isms ('tapestry', 'vibrant', 'intricate', 'delve', etc.).
-3. REJECT if the draft invents primary facts (Hallucination). The core facts MUST come from the raw metadata or visual report.
-   - EXCEPTION: You MAY ALLOW supplementary contextual hints ONLY IF that context was explicitly provided in the `research_context`. But the research context must not be used as a primary source of truth if it contradicts the raw metadata.
+3. REJECT if the draft hallucinates completely made-up facts NOT found in the raw metadata, visual report, OR the `research_context`.
+   - DO NOT be pedantic about primary vs. secondary context. It is FULLY ACCEPTABLE and encouraged for the Writer to seamlessly integrate findings from the `research_context` into the formal description without explicitly tagging them as secondary. If the facts are supported by the research, ACCEPT the draft.
 4. REJECT if the author exists in the LIVE TAXONOMY DATA but the Writer failed to use the exact case-sensitive spelling.
 
 OUTPUT MANDATE:
