@@ -156,7 +156,6 @@ dependencies = [
     { name = "duckduckgo-search" },
     { name = "fastapi" },
     { name = "google-adk" },
-    { name = "google-cloud-tasks" },
     { name = "httpx" },
     { name = "huggingface-hub" },
     { name = "litellm" },
@@ -174,7 +173,6 @@ requires-dist = [
     { name = "duckduckgo-search", specifier = ">=8.1.1" },
     { name = "fastapi", specifier = ">=0.135.2" },
     { name = "google-adk", specifier = ">=1.28.0" },
-    { name = "google-cloud-tasks", specifier = ">=2.22.0" },
     { name = "httpx", specifier = ">=0.28.1" },
     { name = "huggingface-hub", specifier = ">=1.8.0" },
     { name = "litellm", specifier = ">=1.82.6" },
@@ -1027,23 +1025,6 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/4c/47/205eb8e9a1739b5345843e5a425775cbdc472cc38e7eda082ba5b8d02450/google_cloud_storage-3.10.1.tar.gz", hash = "sha256:97db9aa4460727982040edd2bd13ff3d5e2260b5331ad22895802da1fc2a5286", size = 17309950, upload-time = "2026-03-23T09:35:23.409Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/ad/ff/ca9ab2417fa913d75aae38bf40bf856bb2749a604b2e0f701b37cfcd23cc/google_cloud_storage-3.10.1-py3-none-any.whl", hash = "sha256:a72f656759b7b99bda700f901adcb3425a828d4a29f911bc26b3ea79c5b1217f", size = 324453, upload-time = "2026-03-23T09:35:21.368Z" },
-]
-
-[[package]]
-name = "google-cloud-tasks"
-version = "2.22.0"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "google-api-core", extra = ["grpc"] },
-    { name = "google-auth" },
-    { name = "grpc-google-iam-v1" },
-    { name = "grpcio" },
-    { name = "proto-plus" },
-    { name = "protobuf" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/cb/14/1280678c443bb418c97f6ea002a7cae6e27c33b77871fd8f74bc6bd239fe/google_cloud_tasks-2.22.0.tar.gz", hash = "sha256:bc97d847f1dfbf1b602b67b929b7baf570fea35dcedaadabb5adfdf816a67841", size = 353858, upload-time = "2026-03-26T22:17:55.741Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/54/bb/1c4d86b46678343c8b419203ef5c4b9c1d90fbd9ca97025517d04f9da0d0/google_cloud_tasks-2.22.0-py3-none-any.whl", hash = "sha256:10700bcf2d72bbc08dbfaddfd28b3de1a6c5dcb6bd05fa2e7bd258bdfeaa160a", size = 297204, upload-time = "2026-03-26T22:15:10.657Z" },
 ]
 
 [[package]]

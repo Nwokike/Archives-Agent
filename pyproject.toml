@@ -2,7 +2,7 @@
 name = "archives-agent"
 version = "0.1.0"
 description = "Nwokike/Archives-Agent: Autonomous AI agent for cultural and historical archiving based on Igbo themes. Developed by Kiri Research Labs."
-authors = [{ name = "Onyeka Nwokike", email = "nwokikeonyeka@gmail.com" }]
+authors = [{ name = "Onyeka Nwokike" }]
 readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
