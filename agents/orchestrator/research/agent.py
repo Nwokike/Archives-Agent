@@ -1,6 +1,6 @@
 import os
 import asyncio
-from duckduckgo_search import DDGS
+from ddgs import DDGS
 from google.adk.agents import Agent
 from google.adk.models.lite_llm import LiteLlm
 

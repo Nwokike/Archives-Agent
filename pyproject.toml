@@ -6,7 +6,7 @@ authors = [{ name = "Onyeka Nwokike" }]
 readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
-    "duckduckgo-search>=8.1.1",
+    "ddgs>=9.12.0",
     "fastapi>=0.135.2",
     "google-adk>=1.28.0",
     "httpx>=0.28.1",
