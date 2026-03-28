@@ -18,7 +18,7 @@ writer_model = LiteLlm(
 critic_model = LiteLlm(
     model="groq/llama-3.3-70b-versatile",
     api_key=GROQ_API_KEY,
-    fallbacks=["groq/moonshotai/kimi-k2-instruct", "groq/llama-3.1-8b-instant"]
+    fallbacks=["groq/moonshotai/kimi-k2-instruct", "groq/moonshotai/kimi-k2-instruct-0905"]
 )
 
 writer = Agent(

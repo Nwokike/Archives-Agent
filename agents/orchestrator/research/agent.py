@@ -12,7 +12,7 @@ GROQ_API_KEY = os.getenv("GROQ_API_KEY", "")
 research_model = LiteLlm(
     model="groq/llama-3.3-70b-versatile", 
     api_key=GROQ_API_KEY,
-    fallbacks=["groq/moonshotai/kimi-k2-instruct", "groq/llama-3.1-8b-instant"]
+    fallbacks=["groq/moonshotai/kimi-k2-instruct", "groq/moonshotai/kimi-k2-instruct-0905"]
 )
 
 async def duckduckgo_web_search(query: str) -> str:
