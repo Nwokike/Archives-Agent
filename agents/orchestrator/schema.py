@@ -33,4 +33,4 @@ class ArchiveCreate(BaseModel):
     copyright_holder: Optional[str] = Field(default="MAA Cambridge", description="The copyright holder. Defaults to MAA Cambridge.")
     original_url: Optional[str] = Field(description="Source URL from the Hugging Face dataset.")
     original_identity_number: Optional[str] = Field(description="Museum or ID number (idno).")
-    category_id: Optional[int] = Field(description="Numeric ID strictly from the taxonomy tool.")
+    category_id: Optional[int] = Field(description="Numeric ID strictly from the taxonomy tool. MUST BE AN INTEGER (e.g. 2), NEVER A STRING (e.g. '2').")

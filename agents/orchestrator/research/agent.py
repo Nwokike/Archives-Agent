@@ -20,47 +20,16 @@ async def duckduckgo_web_search(query: str) -> str:
     try:
         # Run synchronous DDGS in a thread to avoid blocking the async event loop
         def _search():
-            results = DDGS().text(query, max_results=5)
+            results = DDGS().text(query, max_results=3)
             # DDGS might return a generator or a list depending on version, so list() it
             results = list(results)
             if not results:
                 return "No results found."
-            import json
-            return json.dumps(results, indent=2)
+            return "\n\n".join([f"Source: {r.get('title', '')}\nSnippet: {r.get('body', '')}" for r in results])
             
         return await asyncio.to_thread(_search)
     except Exception as e:
         return f"Search failed: {str(e)}"
-
-def get_researcher_instruction(ctx) -> str:
-    import json
-    raw_md = ctx.state.get("raw_metadata", {})
-    vision = ctx.state.get("vision_report", "No vision report available.")
-    
-    try:
-        raw_str = json.dumps(raw_md, indent=2)
-    except Exception:
-        raw_str = str(raw_md)
-        
-    return f"""
-ROLE:
-You are an Elite Historical & Geographical Researcher for the Igbo Archives.
-
-GOAL:
-Here is the EXCLUSIVE raw data from Hugging Face you MUST analyze:
-{raw_str}
-
-Here is the Vision Analyst Report:
-{vision}
-
-Identify missing context (like modern geographical locations, historical background on the subject, or cultural significance) and search the internet to find it.
-
-STRICT RULES:
-1. Formulate ONE highly specific search query using the `duckduckgo_web_search` tool based on the available metadata above.
-2. Under NO circumstances should you summarize or analyze the results in your final output.
-3. Your FINAL OUTPUT MUST BE EXACTLY the raw JSON search results provided by the `duckduckgo_web_search` tool—nothing else. Outputting every single result provides maximum context to the next agent in the pipeline.
-4. If the search tool fails or returns nothing, just output: "No additional internet context found."
-"""
 
 researcher = Agent(
     name="context_researcher",
@@ -68,5 +37,22 @@ researcher = Agent(
     description="Agent: Researches geographical, historical, and cultural context on the internet.",
     tools=[duckduckgo_web_search],
     output_key="research_context", 
-    instruction=get_researcher_instruction
+    instruction="""
+ROLE:
+You are an Elite Historical & Geographical Researcher for the Igbo Archives.
+
+GOAL:
+Read the raw_metadata and vision_report currently in the session state. 
+RAW HF METADATA: {raw_metadata}
+VISION REPORT: {vision_report}
+
+Identify missing context (like modern geographical locations, historical background on the subject, or cultural significance) and search the internet to find it.
+
+STRICT RULES:
+1. Formulate ONE highly specific search query using the `duckduckgo_web_search` tool based on the available metadata above.
+2. After getting the search results, write a concise summary of the historical, geographical, and cultural facts you discovered.
+3. DO NOT invent information. Only summarize what the search tool returns.
+4. If the search tool fails or returns nothing, just output: "No additional internet context found."
+"""
 )
+

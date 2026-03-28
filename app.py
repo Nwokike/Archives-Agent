@@ -81,7 +81,7 @@ async def run_pipeline(update: Update, bot: Bot):
     image_to_cleanup = None
     full_output = ""
     
-    hive_steps = [] 
+    tracker_messages = [] 
     last_update_time = 0
     
     msg_content = types.Content(role="user", parts=[types.Part.from_text(text=update.message.text)])
@@ -91,16 +91,7 @@ async def run_pipeline(update: Update, bot: Bot):
             author = event.author
             if author and author not in ["user", "system"]:
                 
-                # 1. Update/Add Hive Step
-                current_step = None
-                if hive_steps and hive_steps[-1]["agent"] == author:
-                    current_step = hive_steps[-1]
-                else:
-                    if hive_steps: hive_steps[-1]["status"] = "done"
-                    current_step = {"agent": author, "status": "working", "detail": "Starting..."}
-                    hive_steps.append(current_step)
-                
-                # 2. Extract Text Content Safely
+                # Extract Text Content Safely
                 event_text = ""
                 if event.content and event.content.parts:
                     event_text = "".join([p.text for p in event.content.parts if hasattr(p, 'text') and p.text]).strip()
@@ -108,38 +99,39 @@ async def run_pipeline(update: Update, bot: Bot):
                 func_calls = event.get_function_calls()
                 func_responses = event.get_function_responses()
                 
-                # 3. Update Step Details
+                # Format Raw Output
+                raw_detail = ""
                 if func_calls:
-                    tools = ", ".join([fc.name for fc in func_calls])
-                    current_step["detail"] = f"🛠️ Calling: `{tools}`"
+                    tools = ", ".join([f"{fc.name}({fc.args})" for fc in func_calls])
+                    raw_detail = f"🛠️ Calling: {tools}"
                 elif func_responses:
-                    current_step["detail"] = "📥 Data Received"
+                    raw_detail = "📥 Data Received"
                 elif event_text:
                     if author == "orchestrator":
                         full_output += event_text
-                    snippet = event_text[:45].replace("\n", " ")
-                    current_step["detail"] = f"💭 {snippet}..."
+                    raw_detail = event_text
                 
-                if event.is_final_response():
-                    current_step["status"] = "done"
-                    if "detail" not in current_step or current_step["detail"] == "Starting...":
-                        current_step["detail"] = "✅ Complete"
+                if not raw_detail and event.is_final_response():
+                    raw_detail = "(Finished)"
+                
+                if raw_detail:
+                    tracker_messages.append(f"• {author.upper()}:\n{raw_detail}")
 
-                # 4. Format & Throttled Edit
+                # Format & Throttled Edit
                 now = time.time()
                 if now - last_update_time >= 1.2:
-                    display_lines = ["📡 *Archives Hive Activity*", ""]
-                    for step in hive_steps[-5:]: 
-                        icon = "⚡" if step["status"] == "working" else "🔵"
-                        name = step["agent"].replace("_", " ").upper()
-                        display_lines.append(f"{icon} *{name}*\n└ {step['detail']}")
+                    display_text = "\n\n".join(tracker_messages)
+                    if len(display_text) > 3500:
+                        display_text = "...\n" + display_text[-3500:]
+                        
+                    full_text = f"📡 Archives Hive Activity\n\n{display_text}"
                     
                     try:
                         await bot.edit_message_text(
                             chat_id=chat_id,
                             message_id=status_msg.message_id,
-                            text="\n".join(display_lines),
-                            parse_mode="Markdown"
+                            text=full_text,
+                            parse_mode=None
                         )
                         last_update_time = now
                     except: pass
