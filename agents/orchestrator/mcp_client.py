@@ -8,20 +8,21 @@ from typing import Dict, Any, Optional
 load_dotenv()
 
 MCP_URL = "https://igboarchives.com.ng/api/mcp/"
-API_TOKEN = os.getenv("IGBO_ARCHIVES_TOKEN")
 
 async def call_mcp_tool(server_name: str, tool_name: str, arguments: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
     """
     Robust JSON-RPC client for the Igbo Archives MCP server.
     Includes built-in asynchronous backoff to prevent API rate limiting.
     """
-    if not API_TOKEN:
+    # Fetch dynamically inside the function to prevent module-loading race conditions on Render
+    api_token = os.getenv("IGBO_ARCHIVES_TOKEN")
+    if not api_token:
         return {"error": "IGBO_ARCHIVES_TOKEN not found in environment."}
 
     await asyncio.sleep(1.5)
 
     headers = {
-        "Authorization": f"Token {API_TOKEN}",
+        "Authorization": f"Token {api_token}",
         "Content-Type": "application/json"
     }
 
