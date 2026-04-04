@@ -9,8 +9,15 @@ services:
     # The start command uses uv to run uvicorn from the virtual environment it just built
     startCommand: "uv run uvicorn app:app --host 0.0.0.0 --port $PORT"
     envVars:
+      # Public / Config Variables
       - key: PYTHON_VERSION
-        value: "3.13.0" # Matches your previous Docker setup
+        value: "3.13.0" 
+      - key: TARGET_DATASET
+        value: "nwokikeonyeka/maa-cambridge-south-eastern-nigeria"
+        
+      # Secret Variables (sync: false ensures they are read from the Render dashboard)
+      - key: IGBO_ARCHIVES_TOKEN
+        sync: false
       - key: TELEGRAM_BOT_TOKEN
         sync: false
       - key: TELEGRAM_WEBHOOK_URL
@@ -19,5 +26,3 @@ services:
         sync: false
       - key: GROQ_API_KEY
         sync: false
-      - key: TARGET_DATASET
-        value: "nwokikeonyeka/maa-cambridge-south-eastern-nigeria"
