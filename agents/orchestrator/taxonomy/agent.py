@@ -9,9 +9,17 @@ async def mcp_taxonomy_fetcher() -> dict:
     try:
         authors = await call_mcp_tool("igbo-archives", "list_authors", {})
         categories = await call_mcp_tool("igbo-archives", "list_categories", {})
+        
+        # CRITICAL FIX: Expose errors loudly instead of silently defaulting to empty lists []
+        if "error" in authors:
+            raise ValueError(f"Authors API Error: {authors['error']}")
+        if "error" in categories:
+            raise ValueError(f"Categories API Error: {categories['error']}")
+            
         return {"authors": authors.get("results", []), "categories": categories.get("results", [])}
     except Exception as e:
-        return {"error": f"Taxonomy fetch failed - {str(e)}"}
+        # Re-raise so the pipeline fails cleanly and sends the EXACT error to Telegram
+        raise RuntimeError(f"Taxonomy fetch completely failed - {str(e)}")
 
 async def fetch_taxonomy_programmatically(**kwargs) -> types.Content:
     taxonomies = await mcp_taxonomy_fetcher()
