@@ -2,6 +2,7 @@ import sys
 import os
 import asyncio
 import tempfile
+import uuid
 from dotenv import load_dotenv
 
 # 1. OS-Agnostic Cache Path
@@ -15,7 +16,7 @@ from fastapi import FastAPI, Request
 from google.adk.runners import Runner
 from google.adk.sessions import DatabaseSessionService
 from telegram import Update, Bot
-from telegram.ext import ApplicationBuilder, MessageHandler, filters, ContextTypes
+from telegram.ext import ApplicationBuilder, MessageHandler, CommandHandler, filters, ContextTypes
 from google.genai import types
 
 load_dotenv()
@@ -43,38 +44,58 @@ runner = Runner(
     session_service=session_service
 )
 
-STATIC_SESSION_ID = "global_archive_tracker"
 DATASET_ID = "nwokikeonyeka/maa-cambridge-south-eastern-nigeria"
+
+# --- State Management ---
+# Maps a user's Telegram chat_id to their active dynamic session ID
+active_sessions = {}
 
 # --- Main Pipeline Execution (RAW MODE) ---
 async def run_pipeline(update: Update, bot: Bot):
     chat_id = update.effective_chat.id
-    msg_content = types.Content(role="user", parts=[types.Part.from_text(text=update.message.text)])
+    msg_text = update.message.text.strip() if update.message.text else ""
+    
+    # Handle the /new command directly in the pipeline to support Webhook mode easily
+    if msg_text.startswith("/new"):
+        active_sessions[chat_id] = f"archive_run_{uuid.uuid4().hex[:8]}"
+        await bot.send_message(
+            chat_id=chat_id, 
+            text="🔄 Memory cleared. Ready for a new archive record."
+        )
+        return
+
+    # Ensure the user has an active session ID
+    if chat_id not in active_sessions:
+        active_sessions[chat_id] = f"archive_run_{uuid.uuid4().hex[:8]}"
+    
+    current_session_id = active_sessions[chat_id]
+    
+    msg_content = types.Content(role="user", parts=[types.Part.from_text(text=msg_text)])
     
     # Explicitly AWAIT the session check and creation
     try:
         current_session = await session_service.get_session(
             app_name="igbo-archives-agent-hq", 
             user_id=DATASET_ID, 
-            session_id=STATIC_SESSION_ID
+            session_id=current_session_id
         )
         if not current_session:
             await session_service.create_session(
                 app_name="igbo-archives-agent-hq", 
                 user_id=DATASET_ID, 
-                session_id=STATIC_SESSION_ID
+                session_id=current_session_id
             )
     except Exception:
         # Fallback if the database throws a hard error instead of returning None
         await session_service.create_session(
             app_name="igbo-archives-agent-hq", 
             user_id=DATASET_ID, 
-            session_id=STATIC_SESSION_ID
+            session_id=current_session_id
         )
 
     try:
-        # Execute the pipeline
-        async for event in runner.run_async(user_id=DATASET_ID, session_id=STATIC_SESSION_ID, new_message=msg_content):
+        # Execute the pipeline using the dynamic session ID
+        async for event in runner.run_async(user_id=DATASET_ID, session_id=current_session_id, new_message=msg_content):
             author = event.author
             
             # We only care about agents (not user input or background system pings)
@@ -98,7 +119,7 @@ async def run_pipeline(update: Update, bot: Bot):
             current_session = await session_service.get_session(
                 app_name="igbo-archives-agent-hq", 
                 user_id=DATASET_ID, 
-                session_id=STATIC_SESSION_ID
+                session_id=current_session_id
             )
             if current_session:
                 image_to_cleanup = current_session.state.get("image_path")
@@ -122,6 +143,7 @@ async def telegram_webhook(request: Request):
     payload = await request.json()
     update = Update.de_json(payload, tg_bot)
     
+    # Render webhooks will catch /new here because we check update.message.text
     if update.message and update.message.text:
         asyncio.create_task(run_pipeline(update, tg_bot))
             
@@ -146,7 +168,11 @@ if __name__ == "__main__":
             print("Starting Telegram Bot (Polling Mode)...")
             request = HTTPXRequest(connect_timeout=30, read_timeout=30)
             tg_app = ApplicationBuilder().token(bot_token).request(request).build()
+            
+            # Register command handler and text handler for polling
+            tg_app.add_handler(CommandHandler("new", handle_polling))
             tg_app.add_handler(MessageHandler(filters.TEXT & (~filters.COMMAND), handle_polling))
+            
             tg_app.run_polling()
         else:
             print("CRITICAL: TELEGRAM_BOT_TOKEN not found.")
