@@ -62,9 +62,9 @@ async def create_archives_submission(payload: ArchiveCreate, tool_context: ToolC
 GROQ_API_KEY = os.getenv("GROQ_API_KEY", "")
 
 publisher_model = LiteLlm(
-    model="groq/meta-llama/llama-4-scout-17b-16e-instruct",
+    model="groq/moonshotai/kimi-k2-instruct",
     api_key=GROQ_API_KEY,
-    fallbacks=["groq/llama-3.3-70b-versatile", "groq/moonshotai/kimi-k2-instruct-0905"]
+    fallbacks=["groq/llama-3.3-70b-versatile", "groq/meta-llama/llama-4-scout-17b-16e-instruct"]
 )
 
 # --- Agent E: The Publisher ---
