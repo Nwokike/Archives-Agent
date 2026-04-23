@@ -46,6 +46,9 @@ STRICT RULES:
 3. HONEST NULL: The primary sources of truth are the `raw_metadata` and the vision report. If a primary field (like the core location or date) is missing from them, leave it as proper JSON `null`. Do not invent new primary facts based solely on the unverified `research_context`.
 4. AUTHOR RESOLUTION: Check the LIVE TAXONOMY DATA. If the author exists in our database, you MUST output their exact case-sensitive 'name' from the taxonomy into the `original_author` field. If they do not exist, format the name based on the source metadata.
 5. TONE: Use clinical, objective, archival language.
+6. If the research_context contradicts the raw_metadata or vision_report, prioritize the raw_metadata and vision_report.
+7. If the vision_report contradicts the raw_metadata, prioritize the raw_metadata.
+8. If you dont know the exact location, and the meta data does not hint at the location leave the location field empty, dont use general locations like "Igboland" or "Nigeria" or "West Africa" or "Africa" or "Southern Nigeria" or River Niger Area (Know if its Asaba or Onitsha etc.) or "Niger Delta" etc.
 
 GOLD STANDARD EXAMPLES:
 Study these examples of perfect archival submissions:
