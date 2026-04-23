@@ -6,19 +6,19 @@ from google.adk.events import Event, EventActions
 from ..schema import ArchiveCreate
 
 # --- Configuration ---
-GROQ_API_KEY = os.getenv("GROQ_API_KEY", "")
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
 
 # --- Models ---
 writer_model = LiteLlm(
-    model="groq/moonshotai/kimi-k2-instruct",
-    api_key=GROQ_API_KEY,
-    fallbacks=["groq/llama-3.3-70b-versatile", "groq/meta-llama/llama-4-scout-17b-16e-instruct"]
+    model="gemini/gemini-3.1-flash-lite-preview",
+    api_key=GEMINI_API_KEY,
+    fallbacks=["gemini/gemma-4-31b-it", "gemini/gemma-4-26b-a4b-it"]
 )
 
 critic_model = LiteLlm(
-    model="groq/llama-3.3-70b-versatile",
-    api_key=GROQ_API_KEY,
-    fallbacks=["groq/moonshotai/kimi-k2-instruct", "groq/meta-llama/llama-4-scout-17b-16e-instruct"]
+    model="gemini/gemini-3.1-flash-lite-preview",
+    api_key=GEMINI_API_KEY,
+    fallbacks=["gemini/gemma-4-26b-a4b-it", "gemini/gemma-4-31b-it"]
 )
 
 writer = Agent(

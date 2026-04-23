@@ -59,12 +59,12 @@ async def create_archives_submission(payload: ArchiveCreate, tool_context: ToolC
         return {"status": "FAILURE", "error": str(e)}
 
 # --- Configuration ---
-GROQ_API_KEY = os.getenv("GROQ_API_KEY", "")
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
 
 publisher_model = LiteLlm(
-    model="groq/moonshotai/kimi-k2-instruct",
-    api_key=GROQ_API_KEY,
-    fallbacks=["groq/llama-3.3-70b-versatile", "groq/meta-llama/llama-4-scout-17b-16e-instruct"]
+    model="gemini/gemini-3.1-flash-lite-preview",
+    api_key=GEMINI_API_KEY,
+    fallbacks=["gemini/gemma-4-26b-a4b-it", "gemini/gemma-4-31b-it"]
 )
 
 # --- Agent E: The Publisher ---

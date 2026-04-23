@@ -5,7 +5,7 @@ import tempfile
 import asyncio
 from typing import Dict, Any, Optional
 
-from huggingface_hub import hf_hub_download
+from huggingface_hub import hf_download
 from google.adk.agents import Agent, Context, SequentialAgent
 from google.adk.models.lite_llm import LiteLlm
 from google.adk.tools.agent_tool import AgentTool
@@ -19,7 +19,7 @@ from .publisher.agent import publisher
 
 # --- Configuration & Constants ---
 TARGET_DATASET = os.getenv("TARGET_DATASET", "nwokikeonyeka/maa-cambridge-south-eastern-nigeria")
-GROQ_API_KEY = os.getenv("GROQ_API_KEY", "")
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
 
 # --- Helper Functions (Not exposed to LLM) ---
 
@@ -27,7 +27,7 @@ async def _download_image(repo_id: str, file_name: str) -> str:
     """Internal helper to download an image from Hugging Face without blocking."""
     await asyncio.sleep(1.0) # Rate limit buffering
     path = await asyncio.to_thread(
-        hf_hub_download, repo_id=repo_id, filename=f"images/{file_name}", repo_type="dataset"
+        hf_download, repo_id=repo_id, filename=f"images/{file_name}", repo_type="dataset"
     )
     safe_path = os.path.join(tempfile.gettempdir(), os.path.basename(path))
     shutil.copy2(path, safe_path)
@@ -52,7 +52,7 @@ async def fetch_hf_record(ctx: Context, index: int) -> Dict[str, Any]:
         await asyncio.sleep(1.5) 
         
         metadata_path = await asyncio.to_thread(
-            hf_hub_download, repo_id=TARGET_DATASET, filename="data.jsonl", repo_type="dataset"
+            hf_download, repo_id=TARGET_DATASET, filename="data.jsonl", repo_type="dataset"
         )
         
         record = await asyncio.to_thread(_read_jsonl_record, metadata_path, index)
@@ -91,9 +91,9 @@ def initialize_session_state(callback_context: Context):
 # --- Models & Agents ---
 
 orchestrator_model = LiteLlm(
-    model="groq/moonshotai/kimi-k2-instruct",
-    api_key=GROQ_API_KEY,
-    fallbacks=["groq/llama-3.3-70b-versatile", "groq/meta-llama/llama-4-scout-17b-16e-instruct"]
+    model="gemini/gemini-3.1-flash-lite-preview",
+    api_key=GEMINI_API_KEY,
+    fallbacks=["gemini/gemma-4-31b-it", "gemini/gemma-4-26b-a4b-it"]
 )
 
 archive_pipeline = SequentialAgent(
