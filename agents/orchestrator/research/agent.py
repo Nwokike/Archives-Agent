@@ -18,12 +18,10 @@ async def duckduckgo_web_search(query: str) -> str:
     """Searches the internet for historical, geographical, and cultural context."""
     try:
         def _search():
-            # Increased to 5 to give the agent more raw snippets to choose from
             results = DDGS().text(query, max_results=5)
             results = list(results)
             if not results:
                 return "No results found."
-            # Now correctly captures and returns the URL link along with the snippet
             return "\n\n".join([f"Source: {r.get('title', '')}\nLink: {r.get('href', '')}\nSnippet: {r.get('body', '')}" for r in results])
             
         return await asyncio.to_thread(_search)
@@ -33,7 +31,7 @@ async def duckduckgo_web_search(query: str) -> str:
 researcher = Agent(
     name="context_researcher",
     model=research_model,
-    description="Agent: Gathers maximum supplemental context by performing targeted web searches based on metadata and vision reports.",
+    description="Agent: Gathers maximum supplemental context by performing targeted web searches based on metadata and media reports.",
     tools=[duckduckgo_web_search],
     output_key="research_context", 
     instruction="""
@@ -43,10 +41,10 @@ GOAL: Gather as much highly specific supplemental context as possible using targ
 
 AVAILABLE DATA:
 - RAW HF METADATA: {raw_metadata}
-- VISION REPORT: {vision_report}
+- MEDIA REPORT: {media_report}
 
 STRICT WORKFLOW:
-1. ENTITY EXTRACTION: Identify specific Names, Dates, precise Locations, cultural terms (e.g., instruments, masquerades), or specific Events from the Metadata and Vision Report.
+1. ENTITY EXTRACTION: Identify specific Names, Dates, precise Locations, cultural terms (e.g., instruments, masquerades), or specific Events from the Metadata and Media Report.
 2. EXHAUSTIVE WEB SEARCH: Call `duckduckgo_web_search` multiple times if necessary. Build targeted queries using the exact entities extracted in step 1 to find historical, geographical, or cultural context.
 3. FILTER: If the web search results DO NOT explicitly mention the specific entities you queried, discard those specific results.
 4. OUTPUT: Output ALL the exact text/snippets caught from the searches, untouched and un-rewritten, with their Source Link/URLs.
