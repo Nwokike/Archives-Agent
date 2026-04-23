@@ -40,8 +40,8 @@ async def execute_audio_analysis(ctx: Context) -> str:
         for attempt in range(max_retries):
             try:
                 response = await litellm.acompletion(
-                    model="gemini/gemini-3.1-flash-lite-preview",
-                    fallbacks=["gemini/gemini-3-flash-preview"], 
+                    model="gemini/gemini-3-flash-preview",
+                    fallbacks=["gemini/gemini-3.1-flash-lite-preview"], 
                     api_key=GEMINI_API_KEY,
                     timeout=300,
                     messages=[
