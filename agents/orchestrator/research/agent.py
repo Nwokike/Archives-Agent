@@ -52,4 +52,3 @@ STRICT RULES:
 4. If the search tool fails or returns nothing, just output: "No additional internet context found."
 """
 )
-
