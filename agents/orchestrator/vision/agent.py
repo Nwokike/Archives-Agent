@@ -11,7 +11,7 @@ GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
 
 def _encode_and_compress_image(image_path: str, max_size=(1024, 1024)) -> str:
     """
-    Resizes the image to fit within Gemini's payload limits and converts it to base64.
+    Resizes the image to fit within Groq's payload limits and converts it to base64.
     """
     with PIL.Image.open(image_path) as img:
         # Convert to RGB to avoid issues with PNG transparency or weird color spaces
@@ -30,7 +30,7 @@ def _encode_and_compress_image(image_path: str, max_size=(1024, 1024)) -> str:
 async def execute_vision_analysis(ctx: Context) -> str:
     """
     Custom tool for the Orchestrator. 
-    Compresses the image and includes a retry loop to bypass Gemini 500 errors.
+    Compresses the image and includes a retry loop to bypass Groq 500 errors.
     """
     image_path = ctx.state.get("image_path")
     
@@ -43,13 +43,13 @@ async def execute_vision_analysis(ctx: Context) -> str:
         # 1. Compress and encode the image (Prevents size-based 500 errors)
         base64_image = _encode_and_compress_image(image_path)
         
-        # 2. Add a simple retry loop for transient Gemini server hiccups
+        # 2. Add a simple retry loop for transient Groq server hiccups
         max_retries = 3
         for attempt in range(max_retries):
             try:
                 response = await litellm.acompletion(
-                    model="gemini/gemini-3.1-flash-lite-preview",
-                    fallbacks=["gemini/gemma-4-31b-it", "gemini/gemma-4-26b-a4b-it"], 
+                    model="gemini/gemma-4-26b-a4b-it",
+                    fallbacks=["gemini/gemma-4-31b-it"], 
                     api_key=GEMINI_API_KEY,
                     messages=[
                         {

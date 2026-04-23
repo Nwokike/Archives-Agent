@@ -9,9 +9,9 @@ __all__ = ["researcher"]
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
 
 research_model = LiteLlm(
-    model="gemini/gemini-3.1-flash-lite-preview", 
+    model="gemini/gemma-4-31b-it", 
     api_key=GEMINI_API_KEY,
-    fallbacks=["gemini/gemma-4-31b-it", "gemini/gemma-4-26b-a4b-it"]
+    fallbacks=["gemini/gemma-4-26b-a4b-it"]
 )
 
 async def duckduckgo_web_search(query: str) -> str:
@@ -52,3 +52,4 @@ STRICT RULES:
 4. If the search tool fails or returns nothing, just output: "No additional internet context found."
 """
 )
+

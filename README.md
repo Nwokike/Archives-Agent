@@ -1,7 +1,7 @@
 # Igbo Archives Autonomous Ingestion System
 
 [![AI-Powered](https://img.shields.io/badge/AI-Autonomous%20Agents-blueviolet)](https://google.github.io/google-adk/)
-[![Powered by Google Gemini](https://img.shields.io/badge/Powered%20by-Google%20Gemini-orange)](https://ai.google/gemini/)
+[![Powered by Google Gemma 4](https://img.shields.io/badge/Powered%20by-Google%20Gemma%204-orange)](https://ai.google/gemma/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 An enterprise-grade, fully autonomous AI pipeline designed for **Daily Cultural Archiving**. This system preserves Igbo heritage by intelligently fetching colonial-era metadata from Hugging Face, performing deep visual analysis, augmenting facts with live web research, and publishing validated entries to the [Igbo Archives](https://igboarchives.com.ng) platform via an MCP client.
@@ -18,7 +18,7 @@ The system follows a **Supervised Hierarchical Pipeline** leveraging Google ADK'
 
 ## 🛠️ Tech Stack
 -   **Framework**: Google ADK (2026)
--   **LLM Engine**: Google Gemini 3.1 Flash-Lite (Primary) & Google Gemma 4 (Fallback) via `litellm`.
+-   **LLM Engine**: Google Gemma 4 (gemma-4-26b-a4b-it for Vision, gemma-4-26b-a4b-it & gemma-4-31b-it for Synthesis/Critic) via `litellm`.
 -   **Execution**: Python 3.13 with [uv](https://github.com/astral-sh/uv).
 -   **Persistence**: Neon DB (Postgres) via ADK `DatabaseSessionService`.
 -   **Serverless Infrastructure**: Google Cloud Run + Cloud Tasks (Bypasses CPU scale-to-zero timeouts during long agent chains).

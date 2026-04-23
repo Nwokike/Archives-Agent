@@ -62,9 +62,9 @@ async def create_archives_submission(payload: ArchiveCreate, tool_context: ToolC
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
 
 publisher_model = LiteLlm(
-    model="gemini/gemini-3.1-flash-lite-preview",
+    model="gemini/gemma-4-26b-a4b-it",
     api_key=GEMINI_API_KEY,
-    fallbacks=["gemini/gemma-4-26b-a4b-it", "gemini/gemma-4-31b-it"]
+    fallbacks=["gemini/gemma-4-31b-it"]
 )
 
 # --- Agent E: The Publisher ---

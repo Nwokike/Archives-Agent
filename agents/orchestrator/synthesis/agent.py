@@ -10,15 +10,15 @@ GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
 
 # --- Models ---
 writer_model = LiteLlm(
-    model="gemini/gemini-3.1-flash-lite-preview",
+    model="gemini/gemma-4-31b-it",
     api_key=GEMINI_API_KEY,
-    fallbacks=["gemini/gemma-4-31b-it", "gemini/gemma-4-26b-a4b-it"]
+    fallbacks=["gemini/gemma-4-26b-a4b-it"]
 )
 
 critic_model = LiteLlm(
-    model="gemini/gemini-3.1-flash-lite-preview",
+    model="gemini/gemma-4-26b-a4b-it",
     api_key=GEMINI_API_KEY,
-    fallbacks=["gemini/gemma-4-26b-a4b-it", "gemini/gemma-4-31b-it"]
+    fallbacks=["gemini/gemma-4-31b-it"]
 )
 
 writer = Agent(
