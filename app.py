@@ -39,14 +39,12 @@ engine = create_engine(NEON_URL)
 
 def init_db():
     with engine.begin() as conn:
-        # Table 1: Remembers which dataset you currently have selected
         conn.execute(text("""
             CREATE TABLE IF NOT EXISTS active_dataset (
                 chat_id BIGINT PRIMARY KEY,
                 dataset_key TEXT NOT NULL
             )
         """))
-        # Table 2: Remembers the row index for EACH dataset independently
         conn.execute(text("""
             CREATE TABLE IF NOT EXISTS dataset_indexes (
                 chat_id BIGINT,
@@ -109,28 +107,47 @@ runner = Runner(
 # --- State Management ---
 active_sessions = {}
 
+# --- TELEGRAM HELPER FUNCTIONS ---
+async def safe_send_message(bot: Bot, chat_id: int, text: str, parse_mode: str = None, reply_markup=None):
+    """Sends a message to Telegram, splitting it into chunks if it exceeds the 4000 character limit."""
+    if not text:
+        return
+    
+    # Telegram's hard limit is 4096. We use 4000 to be safe with formatting.
+    chunk_size = 4000
+    
+    # Split the text into manageable chunks
+    chunks = [text[i:i+chunk_size] for i in range(0, len(text), chunk_size)]
+    
+    for i, chunk in enumerate(chunks):
+        try:
+            # Only attach the reply_markup (menu) to the last chunk if it exists
+            markup = reply_markup if i == len(chunks) - 1 else None
+            await bot.send_message(chat_id=chat_id, text=chunk, parse_mode=parse_mode, reply_markup=markup)
+            # Sleep briefly to avoid triggering Telegram's rate limits
+            await asyncio.sleep(0.3)
+        except Exception as e:
+            print(f"Failed to send message chunk: {e}")
+
 # --- TELEGRAM UI CONTROLLERS ---
 async def send_menu(chat_id: int, bot: Bot):
     keyboard = []
     
-    # 1. Action Button
     keyboard.append([InlineKeyboardButton("🚀 Clear Memory & Process Next Row", callback_data="cmd_new")])
     
-    # 2. Dynamic Dataset Buttons
     for key, ds_path in DATASETS.items():
-        # Clean up the name for the button display
         display_name = ds_path.split('/')[-1].replace("-", " ").title()
         keyboard.append([InlineKeyboardButton(f"📁 {display_name}", callback_data=f"setds_{key}")])
     
     reply_markup = InlineKeyboardMarkup(keyboard)
     
-    # Fetch current state to show in the menu
     active_key = await get_active_ds_key(chat_id)
     current_idx = await get_persistent_index(chat_id, active_key)
     active_name = DATASETS.get(active_key, DATASETS[DEFAULT_DS_KEY]).split('/')[-1]
     
     text = f"🎛 **Archives Control Panel**\n\n**Active Target:** `{active_name}`\n**Next Row:** `{current_idx}`\n\nSelect a dataset below or start processing:"
-    await bot.send_message(chat_id=chat_id, text=text, reply_markup=reply_markup, parse_mode="Markdown")
+    
+    await safe_send_message(bot, chat_id, text, parse_mode="Markdown", reply_markup=reply_markup)
 
 async def handle_callback(update: Update, bot: Bot):
     query = update.callback_query
@@ -150,27 +167,27 @@ async def handle_callback(update: Update, bot: Bot):
         current_idx = await get_persistent_index(chat_id, new_ds_key)
         ds_name = DATASETS.get(new_ds_key, DATASETS[DEFAULT_DS_KEY]).split('/')[-1]
         
-        await bot.send_message(
-            chat_id=chat_id, 
-            text=f"✅ **Dataset Locked:** `{ds_name}`\n**Resuming from Row:** `{current_idx}`\n\nClick 'Clear Memory & Process Next Row' in the menu or send /new to begin.",
+        await safe_send_message(
+            bot,
+            chat_id, 
+            f"✅ **Dataset Locked:** `{ds_name}`\n**Resuming from Row:** `{current_idx}`\n\nClick 'Clear Memory & Process Next Row' in the menu or send /new to begin.",
             parse_mode="Markdown"
         )
 
 # --- EXECUTION PIPELINE ---
 async def process_new_command(chat_id: int, bot: Bot):
-    """Handles memory clearing for both the /new command and the inline button."""
     active_ds_key = await get_active_ds_key(chat_id)
     current_idx = await get_persistent_index(chat_id, active_ds_key)
     ds_name = DATASETS.get(active_ds_key, DATASETS[DEFAULT_DS_KEY]).split('/')[-1]
     
     active_sessions[chat_id] = f"archive_run_{uuid.uuid4().hex[:8]}"
-    await bot.send_message(
-        chat_id=chat_id, 
-        text=f"🔄 Memory cleared. Securely processing **Row {current_idx}** of `{ds_name}`...",
+    await safe_send_message(
+        bot,
+        chat_id, 
+        f"🔄 Memory cleared. Securely processing **Row {current_idx}** of `{ds_name}`...",
         parse_mode="Markdown"
     )
     
-    # Simulate a blank text trigger to start the pipeline
     class MockMessage:
         def __init__(self):
             self.text = ""
@@ -183,7 +200,6 @@ async def process_new_command(chat_id: int, bot: Bot):
             
     await run_pipeline(MockUpdate(chat_id), bot)
 
-
 async def run_pipeline(update: Update, bot: Bot):
     chat_id = update.effective_chat.id
     msg_text = update.message.text.strip() if update.message and update.message.text else ""
@@ -192,7 +208,6 @@ async def run_pipeline(update: Update, bot: Bot):
         await process_new_command(chat_id, bot)
         return
 
-    # 1. Fetch exact state
     active_ds_key = await get_active_ds_key(chat_id)
     active_dataset_path = DATASETS.get(active_ds_key, DATASETS[DEFAULT_DS_KEY])
     
@@ -206,13 +221,11 @@ async def run_pipeline(update: Update, bot: Bot):
         active_sessions[chat_id] = f"archive_run_{uuid.uuid4().hex[:8]}"
     current_session_id = active_sessions[chat_id]
     
-    # 2. INJECT DYNAMIC CONTEXT
     system_directive = f"\n\n[SYSTEM DIRECTIVE: The exact dataset you MUST fetch is '{active_dataset_path}'. The exact row index is {current_persistent_index}. Override any defaults.]"
     injected_msg_text = msg_text + system_directive
     
     msg_content = types.Content(role="user", parts=[types.Part.from_text(text=injected_msg_text)])
     
-    # Explicitly AWAIT the session check and creation, using str(chat_id) for isolated sessions
     try:
         current_session = await session_service.get_session(app_name="igbo-archives-agent-hq", user_id=str(chat_id), session_id=current_session_id)
         if not current_session:
@@ -227,17 +240,23 @@ async def run_pipeline(update: Update, bot: Bot):
             if author and author not in ["user", "system"]:
                 event_text = ""
                 if event.content and event.content.parts:
-                    event_text = "".join([p.text for p in event.content.parts if hasattr(p, 'text') and p.text]).strip()
+                    parts = []
+                    for part in event.content.parts:
+                        text_val = getattr(part, 'text', None)
+                        if text_val:
+                            parts.append(text_val)
+                    event_text = "".join(parts).strip()
 
                 if event_text:
-                    await bot.send_message(chat_id=chat_id, text=f"{author.upper()}:\n{event_text}")
+                    await safe_send_message(bot, chat_id, f"{author.upper()}:\n{event_text}")
                     
                     if author == "publisher" and "successfully published" in event_text.lower():
                         new_index = current_persistent_index + 1
                         await set_persistent_index(chat_id, active_ds_key, new_index)
-                        await bot.send_message(
-                            chat_id=chat_id,
-                            text=f"✅ Row completed! Target Index permanently advanced to {new_index} for this dataset.\nOpen /menu to process the next row."
+                        await safe_send_message(
+                            bot,
+                            chat_id,
+                            f"✅ Row completed! Target Index permanently advanced to {new_index} for this dataset.\nOpen /menu to process the next row."
                         )
 
         # Cleanup image file
@@ -252,10 +271,7 @@ async def run_pipeline(update: Update, bot: Bot):
 
     except Exception as e:
         error_msg = f"Error: {str(e)}"
-        if len(error_msg) > 4000:
-            error_msg = error_msg[:4000] + "\n...[Error Truncated]"
-        await bot.send_message(chat_id, error_msg)
-
+        await safe_send_message(bot, chat_id, error_msg)
 
 # --- Webhook Mode (Render Web Service) ---
 app = FastAPI()
