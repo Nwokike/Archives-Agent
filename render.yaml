@@ -12,8 +12,6 @@ services:
       # Public / Config Variables
       - key: PYTHON_VERSION
         value: "3.13.0" 
-      - key: TARGET_DATASET
-        value: "nwokikeonyeka/maa-cambridge-south-eastern-nigeria"
         
       # Secret Variables (sync: false ensures they are read from the Render dashboard)
       - key: IGBO_ARCHIVES_TOKEN
