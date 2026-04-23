@@ -109,22 +109,16 @@ active_sessions = {}
 
 # --- TELEGRAM HELPER FUNCTIONS ---
 async def safe_send_message(bot: Bot, chat_id: int, text: str, parse_mode: str = None, reply_markup=None):
-    """Sends a message to Telegram, splitting it into chunks if it exceeds the 4000 character limit."""
     if not text:
         return
     
-    # Telegram's hard limit is 4096. We use 4000 to be safe with formatting.
     chunk_size = 4000
-    
-    # Split the text into manageable chunks
     chunks = [text[i:i+chunk_size] for i in range(0, len(text), chunk_size)]
     
     for i, chunk in enumerate(chunks):
         try:
-            # Only attach the reply_markup (menu) to the last chunk if it exists
             markup = reply_markup if i == len(chunks) - 1 else None
             await bot.send_message(chat_id=chat_id, text=chunk, parse_mode=parse_mode, reply_markup=markup)
-            # Sleep briefly to avoid triggering Telegram's rate limits
             await asyncio.sleep(0.3)
         except Exception as e:
             print(f"Failed to send message chunk: {e}")
@@ -133,7 +127,7 @@ async def safe_send_message(bot: Bot, chat_id: int, text: str, parse_mode: str =
 async def send_menu(chat_id: int, bot: Bot):
     keyboard = []
     
-    keyboard.append([InlineKeyboardButton("🚀 Clear Memory & Process Next Row", callback_data="cmd_new")])
+    keyboard.append([InlineKeyboardButton("🚀 Clear Memory", callback_data="cmd_new")])
     
     for key, ds_path in DATASETS.items():
         display_name = ds_path.split('/')[-1].replace("-", " ").title()
@@ -145,7 +139,7 @@ async def send_menu(chat_id: int, bot: Bot):
     current_idx = await get_persistent_index(chat_id, active_key)
     active_name = DATASETS.get(active_key, DATASETS[DEFAULT_DS_KEY]).split('/')[-1]
     
-    text = f"🎛 **Archives Control Panel**\n\n**Active Target:** `{active_name}`\n**Next Row:** `{current_idx}`\n\nSelect a dataset below or start processing:"
+    text = f"🎛 **Archives Control Panel**\n\n**Active Target:** `{active_name}`\n**Next Row:** `{current_idx}`\n\nSelect a dataset below:"
     
     await safe_send_message(bot, chat_id, text, parse_mode="Markdown", reply_markup=reply_markup)
 
@@ -170,7 +164,7 @@ async def handle_callback(update: Update, bot: Bot):
         await safe_send_message(
             bot,
             chat_id, 
-            f"✅ **Dataset Locked:** `{ds_name}`\n**Resuming from Row:** `{current_idx}`\n\nClick 'Clear Memory & Process Next Row' in the menu or send /new to begin.",
+            f"✅ **Dataset Locked:** `{ds_name}`\n**Resuming from Row:** `{current_idx}`\n\nClick 'Clear Memory' or send /new to prepare the session.",
             parse_mode="Markdown"
         )
 
@@ -184,21 +178,9 @@ async def process_new_command(chat_id: int, bot: Bot):
     await safe_send_message(
         bot,
         chat_id, 
-        f"🔄 Memory cleared. Securely processing **Row {current_idx}** of `{ds_name}`...",
+        f"🔄 Memory cleared. Ready to process **Row {current_idx}** of `{ds_name}`.\n\nSend any text (e.g. 'start') to begin.",
         parse_mode="Markdown"
     )
-    
-    class MockMessage:
-        def __init__(self):
-            self.text = ""
-            self.chat = type('obj', (object,), {'id': chat_id})
-    class MockUpdate:
-        def __init__(self, chat_id):
-            self.effective_chat = type('obj', (object,), {'id': chat_id})
-            self.message = MockMessage()
-            self.callback_query = None
-            
-    await run_pipeline(MockUpdate(chat_id), bot)
 
 async def run_pipeline(update: Update, bot: Bot):
     chat_id = update.effective_chat.id
@@ -237,29 +219,48 @@ async def run_pipeline(update: Update, bot: Bot):
         async for event in runner.run_async(user_id=str(chat_id), session_id=current_session_id, new_message=msg_content):
             author = event.author
             
-            if author and author not in ["user", "system"]:
+            if author and author.lower() not in ["user", "system"]:
                 event_text = ""
                 if event.content and event.content.parts:
                     parts = []
                     for part in event.content.parts:
+                        # 1. TEXT: Normal chat & chain of thought
                         text_val = getattr(part, 'text', None)
                         if text_val:
                             parts.append(text_val)
-                    event_text = "".join(parts).strip()
+                            
+                        # 2. TOOL CALLS: When the agent triggers a function
+                        func_call = getattr(part, 'function_call', None)
+                        if func_call:
+                            name = getattr(func_call, 'name', 'Unknown')
+                            args = getattr(func_call, 'args', {})
+                            parts.append(f"⚙️ [Executing Tool: {name}]\nArgs: {args}")
+                            
+                        # 3. TOOL RESPONSES: The data returned by the function
+                        func_resp = getattr(part, 'function_response', None)
+                        if func_resp:
+                            name = getattr(func_resp, 'name', 'Unknown')
+                            resp = str(getattr(func_resp, 'response', {}))
+                            # Cap tool dumps at 2000 chars so massive datasets don't freeze the chat
+                            if len(resp) > 2000:
+                                resp = resp[:2000] + "\n...[Output Truncated]"
+                            parts.append(f"✅ [Tool Result: {name}]\n{resp}")
+
+                    event_text = "\n\n".join(parts).strip()
 
                 if event_text:
-                    await safe_send_message(bot, chat_id, f"{author.upper()}:\n{event_text}")
+                    # Note: We do NOT use Markdown here to prevent complex JSON from breaking Telegram's parser
+                    await safe_send_message(bot, chat_id, f"=== {author.upper()} ===\n{event_text}")
                     
-                    if author == "publisher" and "successfully published" in event_text.lower():
+                    if author == "publisher" and "error" not in event_text.lower() and ("publish" in event_text.lower() or "success" in event_text.lower()):
                         new_index = current_persistent_index + 1
                         await set_persistent_index(chat_id, active_ds_key, new_index)
                         await safe_send_message(
                             bot,
                             chat_id,
-                            f"✅ Row completed! Target Index permanently advanced to {new_index} for this dataset.\nOpen /menu to process the next row."
+                            f"✅ Row completed! Target Index permanently advanced to {new_index} for this dataset.\nOpen /menu or send /new to prepare the next row."
                         )
 
-        # Cleanup image file
         try:
             current_session = await session_service.get_session(app_name="igbo-archives-agent-hq", user_id=str(chat_id), session_id=current_session_id)
             if current_session:
