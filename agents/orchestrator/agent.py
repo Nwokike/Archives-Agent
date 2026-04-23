@@ -18,7 +18,8 @@ from .synthesis.agent import synthesis_loop
 from .publisher.agent import publisher
 
 # --- Configuration & Constants ---
-TARGET_DATASET = os.getenv("TARGET_DATASET", "nwokikeonyeka/maa-cambridge-south-eastern-nigeria")
+from .config import DATASETS, DEFAULT_DATASET
+
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
 
 # --- Helper Functions (Not exposed to LLM) ---
@@ -44,15 +45,15 @@ def _read_jsonl_record(filepath: str, target_index: int) -> Optional[Dict[str, A
 
 # --- Agent Tools ---
 
-async def fetch_hf_record(ctx: Context, index: int) -> Dict[str, Any]:
+async def fetch_hf_record(ctx: Context, dataset_id: str, index: int) -> Dict[str, Any]:
     """
-    Extracts the raw metadata and downloads the associated image from Hugging Face for a given row index.
+    Extracts the raw metadata and downloads the associated image from Hugging Face for a given dataset and row index.
     """
     try:
         await asyncio.sleep(1.5) 
         
         metadata_path = await asyncio.to_thread(
-            hf_hub_download, repo_id=TARGET_DATASET, filename="data.jsonl", repo_type="dataset"
+            hf_hub_download, repo_id=dataset_id, filename="data.jsonl", repo_type="dataset"
         )
         
         record = await asyncio.to_thread(_read_jsonl_record, metadata_path, index)
@@ -65,7 +66,7 @@ async def fetch_hf_record(ctx: Context, index: int) -> Dict[str, Any]:
         if not file_name:
             return {"error": f"No image found in the Hugging Face record for index {index}."}
             
-        image_local_path = await _download_image(TARGET_DATASET, file_name)
+        image_local_path = await _download_image(dataset_id, file_name)
         
         # Saves raw metadata directly to state
         ctx.state["image_path"] = image_local_path
@@ -85,7 +86,7 @@ async def fetch_hf_record(ctx: Context, index: int) -> Dict[str, Any]:
 def initialize_session_state(callback_context: Context):
     state = callback_context.state
     state.setdefault("current_index", 0)
-    state.setdefault("dataset_id", TARGET_DATASET)
+    state.setdefault("dataset_id", DEFAULT_DATASET)
 
 
 # --- Models & Agents ---
@@ -102,6 +103,8 @@ archive_pipeline = SequentialAgent(
     description="The Master Archiving Pipeline. Executes taxonomy injection, synthesis, and publication."
 )
 
+# Note: The f-string is used below to inject DEFAULT_DATASET. 
+# {{current_index}} is double-bracketed so the ADK templates it correctly at runtime.
 orchestrator = Agent(
     name="orchestrator",
     model=orchestrator_model, 
@@ -109,7 +112,7 @@ orchestrator = Agent(
     sub_agents=[archive_pipeline],
     tools=[fetch_hf_record, execute_vision_analysis],
     before_agent_callback=initialize_session_state,
-    instruction="""
+    instruction=f"""
 ROLE:
 You are the Chief Orchestrator of the Igbo Archives Autonomous Ingestion System.
 
@@ -117,18 +120,20 @@ GOAL:
 Fetch raw data, command the vision analyst to describe the image completely blind (no context), verify the image matches the record, and trigger the pipeline, if it does not match or no response, donot trigger and state the reason.
 
 STRICT WORKFLOW:
-1. DATA FETCH: Call `fetch_hf_record` using the Target Row Index ({current_index}). 
+1. DATA FETCH: Call `fetch_hf_record`.
+   - If the user provides a SYSTEM DIRECTIVE containing a dataset name, you MUST use that dataset as the `dataset_id`.
+   - If there is NO system directive (e.g., testing mode), you MUST fallback to using "{DEFAULT_DATASET}" as the `dataset_id`.
 2. BLIND VISION ANALYSIS: Call the `vision_analyst` tool. You DO NOT need to give it any prompt or context, it is hardcoded to run blind. Wait for its report. (The report is automatically saved to the database).
 3. VALIDATION: Cross-reference the raw HF metadata with the vision analyst's unbiased report. 
    - If the image completely mismatches the HF record or no response from the vision analyst (e.g., the record is for a wooden mask but the image shows modern clothing, or no image description, or no reply at all), HALT the process entirely. Output an error explaining the mismatch to the user.
 4. PIPELINE TRIGGER: If the image is valid, call the `execute_archive_pipeline` agent to begin the archival synthesis process.
 
 AVAILABLE DATA:
-- Target Dataset: {dataset_id}
-- Current Unarchived Index: {current_index}
+- Fallback Dataset: {DEFAULT_DATASET}
+- Current Unarchived Index: {{current_index}}
 
 STRICT RULES:
-1. If the user explicitly provides a row index (e.g., "Process row 5"), use it. Otherwise, use {current_index}.
+1. If the user explicitly provides a row index (e.g., "Process row 5"), use it. Otherwise, use {{current_index}}.
 2. Keep your direct responses to the user clinical, professional, and brief.
 """.strip()
 )
