@@ -15,7 +15,6 @@ async def call_mcp_tool(server_name: str, tool_name: str, arguments: Optional[Di
     Robust JSON-RPC client for the Igbo Archives MCP server.
     Includes built-in asynchronous backoff to prevent API rate limiting.
     """
-    # Fetch dynamically inside the function to prevent module-loading race conditions on Render
     api_token = os.getenv("IGBO_ARCHIVES_TOKEN")
     if not api_token:
         return {"error": "IGBO_ARCHIVES_TOKEN not found in environment."}
@@ -27,7 +26,6 @@ async def call_mcp_tool(server_name: str, tool_name: str, arguments: Optional[Di
         "Content-Type": "application/json"
     }
 
-    # Standard JSON-RPC payload for MCP via HTTP
     payload = {
         "jsonrpc": "2.0",
         "id": 1,
@@ -39,28 +37,33 @@ async def call_mcp_tool(server_name: str, tool_name: str, arguments: Optional[Di
     }
 
     try:
-        # Extended timeout to 45 seconds to account for heavier payloads
         async with httpx.AsyncClient(timeout=45.0) as client:
-            # Bypass logic for file uploads that JSON RPC cannot handle natively
             if tool_name == "create_archives" and "body" in (arguments or {}):
                 body = arguments["body"].copy()
-                media_raw = body.get("image", None)
                 
-                if media_raw and str(media_raw).startswith("file://"):
+                # Dynamically find which media field holds the local file path
+                media_key = None
+                media_raw = None
+                for key in ["image", "audio", "video", "document"]:
+                    if key in body and isinstance(body[key], str) and body[key].startswith("file://"):
+                        media_key = key
+                        media_raw = body[key]
+                        break
+                        
+                if media_key and media_raw:
                     file_path = media_raw.replace("file://", "", 1)
                     if os.path.exists(file_path):
-                        body.pop("image")  # Remove strictly typed field from payload
+                        body.pop(media_key)  # Remove strictly typed string field from JSON payload
                         
-                        # Dynamically detect MIME type so audio isn't sent as image/jpeg
                         mime_type, _ = mimetypes.guess_type(file_path)
                         if not mime_type:
-                            mime_type = "application/octet-stream" # Safe fallback
+                            mime_type = "application/octet-stream"
 
                         with open(file_path, "rb") as f:
-                            files = {"image": (os.path.basename(file_path), f, mime_type)}
+                            # Attach the file to the exact form field Django is expecting (e.g., 'audio')
+                            files = {media_key: (os.path.basename(file_path), f, mime_type)}
                             rest_url = MCP_URL.replace("/api/mcp/", "/api/v1/archives/")
                             
-                            # Remove headers["Content-Type"] to let httpx handle multipart boundary
                             mp_headers = headers.copy()
                             mp_headers.pop("Content-Type", None)
                             
@@ -76,7 +79,6 @@ async def call_mcp_tool(server_name: str, tool_name: str, arguments: Optional[Di
             if "error" in result:
                 return {"error": result["error"]}
             
-            # MCP response format: result -> content -> [text/json]
             content = result.get("result", {}).get("content", [])
             if content and "text" in content[0]:
                 try:
