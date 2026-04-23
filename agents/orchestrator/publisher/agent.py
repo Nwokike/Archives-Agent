@@ -8,17 +8,16 @@ from ..schema import ArchiveCreate
 async def create_archives_submission(payload: dict | list, tool_context: ToolContext) -> dict:
     """Publishes the validated archival record to the central platform."""
     
-    # 0. THE LIST UNWRAPPER (Bulletproof Pydantic Fix)
+    # 0. THE LIST UNWRAPPER
     if isinstance(payload, list):
         if len(payload) > 0:
-            payload = payload[0]  # Unwrap the array and extract the JSON object
+            payload = payload[0]
         else:
             return {
                 "status": "FAILURE",
                 "error": "FATAL ABORT: Received an empty list instead of a valid payload."
             }
             
-    # Manually validate against your schema now that we are guaranteed to have a dict
     try:
         validated_payload = ArchiveCreate(**payload)
     except Exception as e:
@@ -27,8 +26,8 @@ async def create_archives_submission(payload: dict | list, tool_context: ToolCon
             "error": f"FATAL ABORT: Schema validation failed. {str(e)}"
         }
 
-    # 1. PRE-FLIGHT MEDIA CHECK (Universal Support for Audio & Images)
-    # Checks for the new universal media_path first, falls back to legacy image_path
+    # 1. PRE-FLIGHT MEDIA CHECK
+    media_type = tool_context.state.get("media_type", "image")
     file_path = tool_context.state.get("media_path", tool_context.state.get("image_path", ""))
     
     if not file_path or not os.path.exists(file_path):
@@ -49,13 +48,17 @@ async def create_archives_submission(payload: dict | list, tool_context: ToolCon
     try:
         body = validated_payload.model_dump()
         
-        # 3. Execute MCP Upload
-        # We attach the universal file path (audio or image) to the API payload
-        body["image"] = f"file://{file_path}"
+        # 3. DYNAMIC FIELD ATTACHMENT
+        # Instead of hardcoding 'image', we use 'audio', 'image', or 'video'
+        if media_type not in ["image", "audio", "video", "document"]:
+            media_type = "image" # Fallback
+            
+        body[media_type] = f"file://{file_path}"
         
+        # Execute MCP Upload
         response = await call_mcp_tool("igbo-archives", "create_archives", {"body": body})
         
-        # --- Catch Silent MCP Errors ---
+        # Catch Silent MCP Errors
         response_str = str(response)
         if "Error executing tool" in response_str or "ErrorDetail" in response_str or not response.get("id"):
             return {
@@ -66,7 +69,6 @@ async def create_archives_submission(payload: dict | list, tool_context: ToolCon
         # 4. EXPLICIT PERSISTENCE
         tool_context.state["current_index"] = tool_context.state.get("current_index", 0) + 1
         
-        # Force the ADK DatabaseSessionService to commit immediately
         if hasattr(tool_context, "session_service") and tool_context.session_service:
             try:
                 tool_context.session_service.save_session(tool_context.session)
