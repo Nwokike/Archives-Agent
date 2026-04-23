@@ -222,37 +222,18 @@ async def run_pipeline(update: Update, bot: Bot):
             if author and author.lower() not in ["user", "system"]:
                 event_text = ""
                 if event.content and event.content.parts:
+                    # EXACT REVERSION TO YOUR NOTES AGENT PARSER
                     parts = []
                     for part in event.content.parts:
-                        # 1. TEXT: Normal chat & chain of thought
                         text_val = getattr(part, 'text', None)
                         if text_val:
                             parts.append(text_val)
-                            
-                        # 2. TOOL CALLS: When the agent triggers a function
-                        func_call = getattr(part, 'function_call', None)
-                        if func_call:
-                            name = getattr(func_call, 'name', 'Unknown')
-                            args = getattr(func_call, 'args', {})
-                            parts.append(f"⚙️ [Executing Tool: {name}]\nArgs: {args}")
-                            
-                        # 3. TOOL RESPONSES: The data returned by the function
-                        func_resp = getattr(part, 'function_response', None)
-                        if func_resp:
-                            name = getattr(func_resp, 'name', 'Unknown')
-                            resp = str(getattr(func_resp, 'response', {}))
-                            # Cap tool dumps at 2000 chars so massive datasets don't freeze the chat
-                            if len(resp) > 2000:
-                                resp = resp[:2000] + "\n...[Output Truncated]"
-                            parts.append(f"✅ [Tool Result: {name}]\n{resp}")
-
-                    event_text = "\n\n".join(parts).strip()
+                    event_text = "".join(parts).strip()
 
                 if event_text:
-                    # Note: We do NOT use Markdown here to prevent complex JSON from breaking Telegram's parser
-                    await safe_send_message(bot, chat_id, f"=== {author.upper()} ===\n{event_text}")
+                    await safe_send_message(bot, chat_id, f"{author.upper()}:\n{event_text}")
                     
-                    if author == "publisher" and "error" not in event_text.lower() and ("publish" in event_text.lower() or "success" in event_text.lower()):
+                    if author == "publisher" and "success" in event_text.lower():
                         new_index = current_persistent_index + 1
                         await set_persistent_index(chat_id, active_ds_key, new_index)
                         await safe_send_message(
