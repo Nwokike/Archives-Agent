@@ -4,24 +4,21 @@ from ddgs import DDGS
 from google.adk.agents import Agent
 from google.adk.models.lite_llm import LiteLlm
 
-# Make sure we can expose the agent when importing this folder
 __all__ = ["researcher"]
 
-GROQ_API_KEY = os.getenv("GROQ_API_KEY", "")
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
 
 research_model = LiteLlm(
-    model="groq/moonshotai/kimi-k2-instruct", 
-    api_key=GROQ_API_KEY,
-    fallbacks=["groq/llama-3.3-70b-versatile"]
+    model="gemini/gemini-3.1-flash-lite-preview", 
+    api_key=GEMINI_API_KEY,
+    fallbacks=["gemini/gemma-4-31b-it", "gemini/gemma-4-26b-a4b-it"]
 )
 
 async def duckduckgo_web_search(query: str) -> str:
     """Searches the internet for historical and geographical context."""
     try:
-        # Run synchronous DDGS in a thread to avoid blocking the async event loop
         def _search():
             results = DDGS().text(query, max_results=3)
-            # DDGS might return a generator or a list depending on version, so list() it
             results = list(results)
             if not results:
                 return "No results found."

@@ -77,7 +77,7 @@ runner = Runner(
     session_service=session_service
 )
 
-DATASET_ID = "nwokikeonyeka/maa-cambridge-south-eastern-nigeria"
+DATASET_ID = os.getenv("TARGET_DATASET", "nwokikeonyeka/maa-cambridge-south-eastern-nigeria")
 
 # --- State Management ---
 active_sessions = {}
