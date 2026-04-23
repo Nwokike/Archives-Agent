@@ -5,15 +5,36 @@ from google.adk.tools import ToolContext
 from ..mcp_client import call_mcp_tool
 from ..schema import ArchiveCreate  
 
-async def create_archives_submission(payload: ArchiveCreate, tool_context: ToolContext) -> dict:
+async def create_archives_submission(payload: dict | list, tool_context: ToolContext) -> dict:
     """Publishes the validated archival record to the central platform."""
     
-    # 1. PRE-FLIGHT CHECK
-    image_path = tool_context.state.get("image_path", "")
-    if not image_path or not os.path.exists(image_path):
+    # 0. THE LIST UNWRAPPER (Bulletproof Pydantic Fix)
+    if isinstance(payload, list):
+        if len(payload) > 0:
+            payload = payload[0]  # Unwrap the array and extract the JSON object
+        else:
+            return {
+                "status": "FAILURE",
+                "error": "FATAL ABORT: Received an empty list instead of a valid payload."
+            }
+            
+    # Manually validate against your schema now that we are guaranteed to have a dict
+    try:
+        validated_payload = ArchiveCreate(**payload)
+    except Exception as e:
         return {
             "status": "FAILURE",
-            "error": "FATAL ABORT: Valid image path not found. Pipeline failed in an earlier stage."
+            "error": f"FATAL ABORT: Schema validation failed. {str(e)}"
+        }
+
+    # 1. PRE-FLIGHT MEDIA CHECK (Universal Support for Audio & Images)
+    # Checks for the new universal media_path first, falls back to legacy image_path
+    file_path = tool_context.state.get("media_path", tool_context.state.get("image_path", ""))
+    
+    if not file_path or not os.path.exists(file_path):
+        return {
+            "status": "FAILURE",
+            "error": "FATAL ABORT: Valid media file path not found. Pipeline failed in an earlier stage."
         }
 
     # 2. THE FIREWALL
@@ -26,13 +47,12 @@ async def create_archives_submission(payload: ArchiveCreate, tool_context: ToolC
         }
 
     try:
-        body = payload.model_dump()
-        
-        # We know image_path is valid now due to the pre-flight check
-        # Our updated mcp_client.py intercepts the file:// protocol and uses multipart upload
-        body["image"] = f"file://{image_path}"
+        body = validated_payload.model_dump()
         
         # 3. Execute MCP Upload
+        # We attach the universal file path (audio or image) to the API payload
+        body["image"] = f"file://{file_path}"
+        
         response = await call_mcp_tool("igbo-archives", "create_archives", {"body": body})
         
         # --- Catch Silent MCP Errors ---
@@ -84,12 +104,12 @@ AVAILABLE DATA:
 - The `archive` JSON payload drafted by the Synthesis Writer.
 
 STRICT RULES:
-1. ZERO MODIFICATION: You must pass the exact data from the Writer into your tool. 
+1. ZERO MODIFICATION: You must pass the exact data from the Writer into your tool as a single JSON object. DO NOT wrap it in a list [].
 2. EXACTLY ONE ACTION: You are strictly forbidden from calling the `create_archives_submission` tool more than once per execution.
 3. HANDLING SUCCESS: If the tool returns "SUCCESS", immediately output a brief text confirmation of the success and STOP. Do not process the next index.
 4. HANDLING FAILURE: If the tool returns "FAILURE" (e.g., Critic did not approve), DO NOT attempt to retry or fix the payload. Immediately output the exact error message as text and STOP.
 
 TOOL MANDATE:
-Trigger the `create_archives_submission` tool. Map the Writer's draft perfectly to the tool's parameters. Do not attempt to pass an image_path or critic_status. Once the tool returns a response, output your final text and cease operations.
+Trigger the `create_archives_submission` tool. Map the Writer's draft perfectly to the tool's `payload` parameter. Do not attempt to pass media paths or critic status. Once the tool returns a response, output your final text and cease operations.
 """
 )

@@ -2,6 +2,7 @@ import os
 import httpx
 import json
 import asyncio
+import mimetypes
 from dotenv import load_dotenv
 from typing import Dict, Any, Optional
 
@@ -43,14 +44,20 @@ async def call_mcp_tool(server_name: str, tool_name: str, arguments: Optional[Di
             # Bypass logic for file uploads that JSON RPC cannot handle natively
             if tool_name == "create_archives" and "body" in (arguments or {}):
                 body = arguments["body"].copy()
-                image_raw = body.get("image", None)
+                media_raw = body.get("image", None)
                 
-                if image_raw and str(image_raw).startswith("file://"):
-                    file_path = image_raw.replace("file://", "", 1)
+                if media_raw and str(media_raw).startswith("file://"):
+                    file_path = media_raw.replace("file://", "", 1)
                     if os.path.exists(file_path):
                         body.pop("image")  # Remove strictly typed field from payload
+                        
+                        # Dynamically detect MIME type so audio isn't sent as image/jpeg
+                        mime_type, _ = mimetypes.guess_type(file_path)
+                        if not mime_type:
+                            mime_type = "application/octet-stream" # Safe fallback
+
                         with open(file_path, "rb") as f:
-                            files = {"image": (os.path.basename(file_path), f, "image/jpeg")}
+                            files = {"image": (os.path.basename(file_path), f, mime_type)}
                             rest_url = MCP_URL.replace("/api/mcp/", "/api/v1/archives/")
                             
                             # Remove headers["Content-Type"] to let httpx handle multipart boundary

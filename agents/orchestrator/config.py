@@ -16,7 +16,7 @@ DATASETS = {
 # --- DEFAULT FALLBACK ---
 # This is the default dataset key used by the Orchestrator if it is run in isolation 
 # (e.g., tested via Google ADK Web UI) where the Telegram system directive is not present.
-DEFAULT_DS_KEY = "ds2"
+DEFAULT_DS_KEY = "ds5"
 
 # Evaluates to "nwokikeonyeka/maa-cambridge-south-eastern-nigeria" based on the key above
 DEFAULT_DATASET = DATASETS[DEFAULT_DS_KEY]

@@ -11,7 +11,7 @@ GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
 
 def _encode_and_compress_image(image_path: str, max_size=(1024, 1024)) -> str:
     """
-    Resizes the image to fit within Groq's payload limits and converts it to base64.
+    Resizes the image to fit within the model's payload limits and converts it to base64.
     """
     with PIL.Image.open(image_path) as img:
         # Convert to RGB to avoid issues with PNG transparency or weird color spaces
@@ -30,11 +30,12 @@ def _encode_and_compress_image(image_path: str, max_size=(1024, 1024)) -> str:
 async def execute_vision_analysis(ctx: Context) -> str:
     """
     Custom tool for the Orchestrator. 
-    Compresses the image and includes a retry loop to bypass Groq 500 errors.
+    Compresses the image and includes a retry loop to bypass possible 500 errors.
     """
-    image_path = ctx.state.get("image_path")
+    # FIX: Now looks for the universal 'media_path' set by the Orchestrator, falling back to image_path just in case
+    image_path = ctx.state.get("media_path", ctx.state.get("image_path"))
     
-    if not image_path or not os.path.exists(image_path):
+    if not image_path or image_path == "NONE" or not os.path.exists(image_path):
         error_msg = f"FATAL: Valid image not found at path: {image_path}"
         ctx.state["vision_report_error"] = error_msg
         return error_msg
@@ -43,7 +44,7 @@ async def execute_vision_analysis(ctx: Context) -> str:
         # 1. Compress and encode the image (Prevents size-based 500 errors)
         base64_image = _encode_and_compress_image(image_path)
         
-        # 2. Add a simple retry loop for transient Groq server hiccups
+        # 2. Add a simple retry loop to prevent possible server hiccups
         max_retries = 3
         for attempt in range(max_retries):
             try:
@@ -51,6 +52,7 @@ async def execute_vision_analysis(ctx: Context) -> str:
                     model="gemini/gemma-4-26b-a4b-it",
                     fallbacks=["gemini/gemma-4-31b-it"], 
                     api_key=GEMINI_API_KEY,
+                    timeout=300, # Added timeout for large image processing
                     messages=[
                         {
                             "role": "user",

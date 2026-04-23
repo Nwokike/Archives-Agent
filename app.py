@@ -222,13 +222,29 @@ async def run_pipeline(update: Update, bot: Bot):
             if author and author.lower() not in ["user", "system"]:
                 event_text = ""
                 if event.content and event.content.parts:
-                    # EXACT REVERSION TO YOUR NOTES AGENT PARSER
                     parts = []
                     for part in event.content.parts:
+                        # 1. Standard text outputs
                         text_val = getattr(part, 'text', None)
                         if text_val:
                             parts.append(text_val)
-                    event_text = "".join(parts).strip()
+                            
+                        # 2. Log tool execution
+                        func_call = getattr(part, 'function_call', None)
+                        if func_call:
+                            name = getattr(func_call, 'name', 'Unknown')
+                            parts.append(f"⚙️ [Executing Tool: {name}]")
+                            
+                        # 3. Log ALL tool responses completely raw
+                        func_resp = getattr(part, 'function_response', None)
+                        if func_resp:
+                            name = getattr(func_resp, 'name', 'Unknown')
+                            resp = getattr(func_resp, 'response', {})
+                            
+                            resp_str = str(resp.get('result', resp)) if isinstance(resp, dict) and 'result' in resp else str(resp)
+                            parts.append(f"✅ [Tool Result: {name}]\n{resp_str}")
+
+                    event_text = "\n\n".join(parts).strip()
 
                 if event_text:
                     await safe_send_message(bot, chat_id, f"{author.upper()}:\n{event_text}")
@@ -242,12 +258,17 @@ async def run_pipeline(update: Update, bot: Bot):
                             f"✅ Row completed! Target Index permanently advanced to {new_index} for this dataset.\nOpen /menu or send /new to prepare the next row."
                         )
 
+        # UNIVERSAL MEDIA CLEANUP (Handles both audio and images)
         try:
             current_session = await session_service.get_session(app_name="igbo-archives-agent-hq", user_id=str(chat_id), session_id=current_session_id)
             if current_session:
-                image_to_cleanup = current_session.state.get("image_path")
-                if image_to_cleanup and os.path.exists(image_to_cleanup):
-                    os.remove(image_to_cleanup)
+                media_to_cleanup = current_session.state.get("media_path")
+                # Fallback to legacy image_path if it exists just to be safe
+                legacy_image = current_session.state.get("image_path")
+                
+                for file_to_delete in [media_to_cleanup, legacy_image]:
+                    if file_to_delete and file_to_delete != "NONE" and os.path.exists(file_to_delete):
+                        os.remove(file_to_delete)
         except Exception:
             pass
 
